@@ -186,13 +186,14 @@ const TradingJournal = () => {
             setIsSyncing(true);
             const journalData = {
                 auth_user_id: user.id,
-                user_id: user.email, // Mantener compatibilidad
+                // user_id: user.email, // Mantener compatibilidad
                 initial_capital: initialCapital,
                 trades: trades,
                 monthly_history: monthlyHistory,
                 current_month: currentMonth,
                 updated_at: new Date().toISOString()
             };
+
 
             const { error } = await supabase
                 .from('trading_journal')
@@ -1067,13 +1068,13 @@ const TradingJournal = () => {
                                 ) : (
                                     [...trades].reverse().map((trade) => (
                                         <tr key={trade.id} className="hover:bg-gray-800 transition-colors">
-                                            <td className="px-6 py-4 text-sm text-gray-300">{trade.date}</td>
-                                            <td className="px-6 py-4 text-sm font-semibold text-white">{trade.pair}</td>
+                                            <td className="px-3 py-4 text-sm text-gray-300">{trade.date}</td>
+                                            <td className="px-3 py-4 text-sm font-semibold text-white">{trade.pair}</td>
 
-                                            <td className="px-6 py-4 text-sm font-semibold text-white">{trade.action}</td>
+                                            <td className="px-3 py-4 text-sm font-semibold text-white">{trade.action}</td>
 
-                                            <td className="px-6 py-4 text-sm text-gray-300">{trade.leverage}x</td>
-                                            <td className="px-6 py-4 text-sm">
+                                            <td className="px-3 py-4 text-sm text-gray-300">{trade.leverage}x</td>
+                                            <td className="px-3 py-4 text-sm">
                                                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${trade.result === 'win'
                                                     ? 'bg-green-900/50 text-green-300 border border-green-500/30'
                                                     : 'bg-red-900/50 text-red-300 border border-red-500/30'
@@ -1081,12 +1082,12 @@ const TradingJournal = () => {
                                                     {trade.result === 'win' ? '✅ Ganada' : '❌ Perdida'}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-sm font-bold">
+                                            <td className="px-3 py-4 text-sm font-bold">
                                                 <span className={trade.result === 'win' ? 'text-green-400' : 'text-red-400'}>
                                                     {trade.result === 'win' ? '+' : '-'}${parseFloat(trade.amount).toFixed(2)}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-sm">
+                                            <td className="px-3 py-4 text-sm">
                                                 <button
                                                     onClick={() => deleteTrade(trade.id)}
                                                     className="text-red-400 hover:text-red-300 transition-colors"
