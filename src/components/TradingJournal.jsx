@@ -112,8 +112,6 @@ const TradingJournal = () => {
         let maxDrawdown = 0;
         let peak = initialCap;
 
-
-
         const balanceHistory = [{ date: 'Inicio', balance: initialCap }];
 
         tradesList.forEach((trade, index) => {
@@ -143,9 +141,6 @@ const TradingJournal = () => {
         const profitLoss = currentBalance - initialCap;
         const roi = initialCap > 0 ? ((profitLoss / initialCap) * 100) : 0;
 
-        let totalProfit = winAmount - lossAmount
-
-
         return {
             currentBalance,
             totalWins,
@@ -157,8 +152,7 @@ const TradingJournal = () => {
             winAmount,
             lossAmount,
             maxDrawdown,
-            balanceHistory,
-            totalProfit
+            balanceHistory
         };
     };
 
@@ -274,8 +268,7 @@ const TradingJournal = () => {
         { name: 'Perdidas', value: currentStats?.totalLosses || 0, color: '#ef4444' }
     ];
 
-    // const COLORS = ['#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
-    const COLORS = ['#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+    const COLORS = ['#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 
     const SyncIndicator = () => (
         <div className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm ${isSyncing ? 'bg-yellow-600' : 'bg-green-600'
@@ -299,7 +292,7 @@ const TradingJournal = () => {
     // Vista de Historial Mensual
     if (view === 'history') {
         return (
-            <div className="min-h-screen bg-gray-950 p-4 md:p-8">
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4 md:p-8">
                 <div className="max-w-7xl mx-auto">
                     <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl shadow-2xl p-6 mb-6">
                         <div className="flex items-center justify-between">
@@ -501,27 +494,11 @@ const TradingJournal = () => {
                     {/* Estadísticas Detalladas */}
                     <div className="bg-slate-800 rounded-xl shadow-xl p-6 mb-6 border border-slate-700">
                         <h3 className="text-xl font-bold text-purple-400 mb-4">📊 Estadísticas Detalladas</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="bg-slate-700 p-4 rounded-lg">
                                 <p className="text-slate-400 text-sm">💰 Total Ganancias</p>
                                 <p className="text-2xl font-bold text-green-400">+${selectedMonth.stats.winAmount.toFixed(2)}</p>
                             </div>
-
-
-
-                            <div className="bg-slate-700 p-4 rounded-lg">
-                                <p className="text-slate-400 text-sm">💵 Profit Neto</p>
-                                <p className="text-2xl font-bold text-green-400">+$</p>
-                            </div>
-
-
-
-
-
-
-
-
                             <div className="bg-slate-700 p-4 rounded-lg">
                                 <p className="text-slate-400 text-sm">💸 Total Pérdidas</p>
                                 <p className="text-2xl font-bold text-red-400">-${selectedMonth.stats.lossAmount.toFixed(2)}</p>
@@ -557,8 +534,8 @@ const TradingJournal = () => {
                                             <td className="px-6 py-4 text-sm text-slate-300">{trade.leverage}x</td>
                                             <td className="px-6 py-4 text-sm">
                                                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${trade.result === 'win'
-                                                    ? 'bg-green-900 text-green-300'
-                                                    : 'bg-red-900 text-red-300'
+                                                        ? 'bg-green-900 text-green-300'
+                                                        : 'bg-red-900 text-red-300'
                                                     }`}>
                                                     {trade.result === 'win' ? '✅ Ganada' : '❌ Perdida'}
                                                 </span>
@@ -581,10 +558,10 @@ const TradingJournal = () => {
 
     // Vista Principal (Mes Actual)
     return (
-        <div className="min-h-screen bg-gray-950 p-4 md:p-8">
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4 md:p-8">
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
-                {/* <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl shadow-2xl p-6 mb-6">
+                <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl shadow-2xl p-6 mb-6">
                     <div className="flex flex-col md:flex-row items-center justify-between">
                         <div>
                             <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
@@ -626,51 +603,11 @@ const TradingJournal = () => {
                             </div>
                         </div>
                     </div>
-                </div> */}
-
-                {/* Header */}
-                <div className="bg-gray-900 rounded-2xl shadow-2xl p-6 mb-6 border border-gray-800">
-                    <div className="flex flex-col md:flex-row items-center justify-between">
-                        <div>
-                            <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
-                                <BarChart3 className="w-10 h-10 text-cyan-400" />
-                                Bitácora de Trading Pro
-                            </h1>
-                            <p className="text-gray-400">Mes actual en progreso</p>
-                        </div>
-                        <div className="flex gap-2 mt-4 md:mt-0">
-                            <button
-                                onClick={() => setView('history')}
-                                className="bg-gray-800 text-cyan-400 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-700 transition-all shadow-lg border border-gray-700"
-                            >
-                                <Archive className="w-4 h-4" />
-                                Historial
-                            </button>
-                            <button
-                                onClick={saveCurrentMonth}
-                                className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700 transition-all shadow-lg"
-                            >
-                                <Save className="w-4 h-4" />
-                                Guardar Mes
-                            </button>
-                            <button onClick={exportData} className="bg-gray-800 text-cyan-400 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-700 transition-all shadow-lg border border-gray-700">
-                                <Download className="w-4 h-4" />
-                                Exportar
-                            </button>
-                            <label className="bg-gray-800 text-cyan-400 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-700 transition-all shadow-lg border border-gray-700 cursor-pointer">
-                                <Upload className="w-4 h-4" />
-                                Importar
-                                <input type="file" accept=".json" onChange={importData} className="hidden" />
-                            </label>
-                        </div>
-                    </div>
                 </div>
 
 
-
-
                 {/* Capital Inicial */}
-                {/* <div className="bg-slate-800 rounded-xl shadow-xl p-6 mb-6 border border-slate-700">
+                <div className="bg-slate-800 rounded-xl shadow-xl p-6 mb-6 border border-slate-700">
                     <label className="text-slate-300 text-sm font-semibold mb-3 block">💰 Capital Inicial (USDT)</label>
                     <input
                         type="number"
@@ -679,22 +616,10 @@ const TradingJournal = () => {
                         className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-purple-500 focus:outline-none text-lg font-bold"
                         step="0.01"
                     />
-                </div> */}
-
-                {/* Capital Inicial */}
-                <div className="bg-gray-900 rounded-xl shadow-xl p-6 mb-6 border border-gray-800">
-                    <label className="text-gray-400 text-sm font-semibold mb-3 block">💰 Capital Inicial (USDT)</label>
-                    <input
-                        type="number"
-                        value={initialCapital}
-                        onChange={(e) => setInitialCapital(parseFloat(e.target.value) || 0)}
-                        className="w-full bg-gray-800 text-white px-4 py-3 rounded-lg border border-gray-700 focus:border-cyan-500 focus:outline-none text-lg font-bold"
-                        step="0.01"
-                    />
                 </div>
 
                 {/* Dashboard Stats */}
-                {/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                     <div className={`rounded-xl p-6 shadow-lg ${stats.profitLoss >= 0 ? 'bg-gradient-to-br from-green-500 to-emerald-600' : 'bg-gradient-to-br from-red-500 to-rose-600'}`}>
                         <div className="flex items-center justify-between mb-2">
                             <DollarSign className="w-10 h-10 text-white" />
@@ -732,56 +657,10 @@ const TradingJournal = () => {
                         <p className="text-3xl font-bold text-white">{stats.totalTrades}</p>
                         <p className="text-orange-100 text-sm mt-1">Operaciones registradas</p>
                     </div>
-                </div> */}
-
-
-                {/* Dashboard Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    <div className={`rounded-xl p-6 shadow-lg border ${stats.profitLoss >= 0 ? 'bg-green-900/20 border-green-500/30' : 'bg-red-900/20 border-red-500/30'}`}>
-                        <div className="flex items-center justify-between mb-2">
-                            <DollarSign className="w-10 h-10 text-white" />
-                            <span className="text-gray-400 text-sm font-semibold">Balance Actual</span>
-                        </div>
-                        <p className="text-3xl font-bold text-white">${stats.currentBalance.toFixed(2)}</p>
-                        <p className={`text-sm mt-1 ${stats.profitLoss >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                            {stats.profitLoss >= 0 ? '+' : ''}{stats.profitLoss.toFixed(2)} USDT
-                        </p>
-                    </div>
-
-                    <div className="bg-blue-900/20 border border-blue-500/30 rounded-xl p-6 shadow-lg">
-                        <div className="flex items-center justify-between mb-2">
-                            <TrendingUp className="w-10 h-10 text-white" />
-                            <span className="text-gray-400 text-sm font-semibold">ROI</span>
-                        </div>
-                        <p className="text-3xl font-bold text-white">{stats.roi.toFixed(2)}%</p>
-                        <p className="text-blue-400 text-sm mt-1">Retorno de inversión</p>
-                    </div>
-
-                    <div className="bg-purple-900/20 border border-purple-500/30 rounded-xl p-6 shadow-lg">
-                        <div className="flex items-center justify-between mb-2">
-                            <PieChart className="w-10 h-10 text-white" />
-                            <span className="text-gray-400 text-sm font-semibold">Win Rate</span>
-                        </div>
-                        <p className="text-3xl font-bold text-white">{stats.winRate.toFixed(1)}%</p>
-                        <p className="text-purple-400 text-sm mt-1">{stats.totalWins}W / {stats.totalLosses}L</p>
-                    </div>
-
-                    <div className="bg-amber-900/20 border border-amber-500/30 rounded-xl p-6 shadow-lg">
-                        <div className="flex items-center justify-between mb-2">
-                            <BarChart3 className="w-10 h-10 text-white" />
-                            <span className="text-gray-400 text-sm font-semibold">Total Trades</span>
-                        </div>
-                        <p className="text-3xl font-bold text-white">{stats.totalTrades}</p>
-                        <p className="text-amber-400 text-sm mt-1">Operaciones registradas</p>
-                    </div>
                 </div>
 
-
-
-
-
                 {/* Formulario Nueva Operación */}
-                {/* <div className="bg-slate-800 rounded-xl shadow-xl p-6 mb-6 border border-slate-700">
+                <div className="bg-slate-800 rounded-xl shadow-xl p-6 mb-6 border border-slate-700">
                     <h2 className="text-2xl font-bold text-purple-400 mb-4 flex items-center gap-2">
                         <Plus className="w-6 h-6" />
                         Nueva Operación
@@ -846,84 +725,10 @@ const TradingJournal = () => {
                         <Plus className="w-5 h-5" />
                         Agregar Operación
                     </button>
-                </div> */}
-
-
-                {/* Formulario Nueva Operación */}
-                <div className="bg-gray-900 rounded-xl shadow-xl p-6 mb-6 border border-gray-800">
-                    <h2 className="text-2xl font-bold text-cyan-400 mb-4 flex items-center gap-2">
-                        <Plus className="w-6 h-6" />
-                        Nueva Operación
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                        <div>
-                            <label className="text-gray-400 text-sm mb-2 block">📊 Par</label>
-                            <input
-                                type="text"
-                                placeholder="BTC/USDT"
-                                value={newTrade.pair}
-                                onChange={(e) => setNewTrade({ ...newTrade, pair: e.target.value.toUpperCase() })}
-                                className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-cyan-500 focus:outline-none"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-gray-400 text-sm mb-2 block">⚡ Apalancamiento</label>
-                            <input
-                                type="number"
-                                value={newTrade.leverage}
-                                onChange={(e) => setNewTrade({ ...newTrade, leverage: parseInt(e.target.value) || 1 })}
-                                className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-cyan-500 focus:outline-none"
-                                min="1"
-                                max="125"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-gray-400 text-sm mb-2 block">📈 Resultado</label>
-                            <select
-                                value={newTrade.result}
-                                onChange={(e) => setNewTrade({ ...newTrade, result: e.target.value })}
-                                className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-cyan-500 focus:outline-none"
-                            >
-                                <option value="win">✅ Ganada</option>
-                                <option value="loss">❌ Perdida</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="text-gray-400 text-sm mb-2 block">💵 Monto (USDT)</label>
-                            <input
-                                type="number"
-                                value={newTrade.amount}
-                                onChange={(e) => setNewTrade({ ...newTrade, amount: parseFloat(e.target.value) || 0 })}
-                                className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-cyan-500 focus:outline-none"
-                                step="0.01"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-gray-400 text-sm mb-2 block">📅 Fecha</label>
-                            <input
-                                type="date"
-                                value={newTrade.date}
-                                onChange={(e) => setNewTrade({ ...newTrade, date: e.target.value })}
-                                className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-cyan-500 focus:outline-none"
-                            />
-                        </div>
-                    </div>
-                    <button
-                        onClick={addTrade}
-                        className="mt-4 w-full bg-cyan-600 text-white px-6 py-3 rounded-lg hover:bg-cyan-700 transition-all shadow-lg font-bold flex items-center justify-center gap-2"
-                    >
-                        <Plus className="w-5 h-5" />
-                        Agregar Operación
-                    </button>
                 </div>
 
-
-
-
-
-
                 {/* Gráficas */}
-                {/* <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                     <div className="bg-slate-800 rounded-xl shadow-xl p-6 border border-slate-700">
                         <h3 className="text-xl font-bold text-purple-400 mb-4">📈 Evolución del Balance</h3>
                         <ResponsiveContainer width="100%" height={300}>
@@ -959,58 +764,10 @@ const TradingJournal = () => {
                             </RePieChart>
                         </ResponsiveContainer>
                     </div>
-                </div> */}
-
-
-
-                {/* Gráficas */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-
-
-
-
-                    <div className="bg-gray-900 rounded-xl shadow-xl p-6 border border-gray-800">
-                        <h3 className="text-xl font-bold text-cyan-400 mb-4">📈 Evolución del Balance</h3>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={stats.balanceHistory}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                                <XAxis dataKey="date" stroke="#9ca3af" />
-                                <YAxis stroke="#9ca3af" />
-                                <Tooltip contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', color: '#9ca3af' }} />
-                                <Line type="monotone" dataKey="balance" stroke="#06b6d4" strokeWidth={3} dot={{ fill: '#06b6d4' }} />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
-
-
-
-
-                    <div className="bg-gray-900 rounded-xl shadow-xl p-6 border border-gray-800">
-                        <h3 className="text-xl font-bold text-cyan-400 mb-4">🎯 Distribución de Resultados</h3>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <RePieChart>
-                                <Pie
-                                    data={resultData}
-                                    cx="50%"
-                                    cy="50%"
-                                    labelLine={false}
-                                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                    outerRadius={100}
-                                    fill="#8884d8"
-                                    dataKey="value"
-                                >
-                                    {resultData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
-                                </Pie>
-                                <Tooltip />
-                            </RePieChart>
-                        </ResponsiveContainer>
-                    </div>
                 </div>
 
                 {/* Estadísticas Detalladas */}
-                {/* <div className="bg-slate-800 rounded-xl shadow-xl p-6 mb-6 border border-slate-700">
+                <div className="bg-slate-800 rounded-xl shadow-xl p-6 mb-6 border border-slate-700">
                     <h3 className="text-xl font-bold text-purple-400 mb-4">📊 Estadísticas Detalladas</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="bg-slate-700 p-4 rounded-lg">
@@ -1026,44 +783,11 @@ const TradingJournal = () => {
                             <p className="text-2xl font-bold text-orange-400">{stats.maxDrawdown.toFixed(2)}%</p>
                         </div>
                     </div>
-                    <div className="p-4 ">
-                        <div className="bg-slate-700 p-4 rounded-lg">
-                            <p className="text-slate-400 text-sm">💵 Balance Neto</p>
-                            <p className={stats.totalProfit < 0 ? 'text-2xl font-bold  text-red-400' : 'text-2xl font-bold  text-green-400'}>{stats.totalProfit < 0 ? '-' : '+'}${stats.totalProfit.toFixed(2)}</p>
-                        </div>
-                    </div>
-
-                </div> */}
-
-                <div className="bg-gray-900 rounded-xl shadow-xl p-6 mb-6 border border-gray-800">
-                    <h3 className="text-xl font-bold text-cyan-400 mb-4">📊 Estadísticas Detalladas</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-                            <p className="text-gray-400 text-sm">💰 Total Ganancias</p>
-                            <p className="text-2xl font-bold text-green-400">+${stats.winAmount.toFixed(2)}</p>
-                        </div>
-                        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-                            <p className="text-gray-400 text-sm">💵 Balance Neto</p>
-                            <p className={`text-2xl font-bold ${stats.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                {stats.totalProfit >= 0 ? '+' : ''}${stats.totalProfit.toFixed(2)}
-                            </p>
-                        </div>
-                        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-                            <p className="text-gray-400 text-sm">💸 Total Pérdidas</p>
-                            <p className="text-2xl font-bold text-red-400">-${stats.lossAmount.toFixed(2)}</p>
-                        </div>
-                        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-                            <p className="text-gray-400 text-sm">📉 Max Drawdown</p>
-                            <p className="text-2xl font-bold text-orange-400">{stats.maxDrawdown.toFixed(2)}%</p>
-                        </div>
-                    </div>
                 </div>
 
                 {/* Tabla de Operaciones */}
-                {/* <div className="bg-slate-800 rounded-xl shadow-xl overflow-hidden border border-slate-700">
+                <div className="bg-slate-800 rounded-xl shadow-xl overflow-hidden border border-slate-700">
                     <div className="p-6 bg-slate-750 border-b border-slate-700">
-
-
                         <h2 className="text-2xl font-bold text-purple-400">📋 Historial de Operaciones</h2>
                     </div>
                     <div className="overflow-x-auto">
@@ -1093,67 +817,8 @@ const TradingJournal = () => {
                                             <td className="px-6 py-4 text-sm text-slate-300">{trade.leverage}x</td>
                                             <td className="px-6 py-4 text-sm">
                                                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${trade.result === 'win'
-                                                    ? 'bg-green-900 text-green-300'
-                                                    : 'bg-red-900 text-red-300'
-                                                    }`}>
-                                                    {trade.result === 'win' ? '✅ Ganada' : '❌ Perdida'}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm font-bold">
-                                                <span className={trade.result === 'win' ? 'text-green-400' : 'text-red-400'}>
-                                                    {trade.result === 'win' ? '+' : '-'}${parseFloat(trade.amount).toFixed(2)}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm">
-                                                <button
-                                                    onClick={() => deleteTrade(trade.id)}
-                                                    className="text-red-400 hover:text-red-300 transition-colors"
-                                                >
-                                                    <Trash2 className="w-5 h-5" />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div> */}
-
-                <div className="bg-gray-900 rounded-xl shadow-xl overflow-hidden border border-gray-800">
-                    <div className="p-6 bg-gray-800 border-b border-gray-700">
-                        <h2 className="text-2xl font-bold text-cyan-400">📋 Historial de Operaciones</h2>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gray-800">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Fecha</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Par</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Apalancamiento</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Resultado</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Monto</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-800">
-                                {trades.length === 0 ? (
-                                    <tr>
-                                        <td colSpan="6" className="px-6 py-8 text-center text-gray-400">
-                                            No hay operaciones registradas. ¡Agrega tu primera operación!
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    [...trades].reverse().map((trade) => (
-                                        <tr key={trade.id} className="hover:bg-gray-800 transition-colors">
-                                            <td className="px-6 py-4 text-sm text-gray-300">{trade.date}</td>
-                                            <td className="px-6 py-4 text-sm font-semibold text-white">{trade.pair}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-300">{trade.leverage}x</td>
-                                            <td className="px-6 py-4 text-sm">
-                                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${trade.result === 'win'
-                                                    ? 'bg-green-900/50 text-green-300 border border-green-500/30'
-                                                    : 'bg-red-900/50 text-red-300 border border-red-500/30'
+                                                        ? 'bg-green-900 text-green-300'
+                                                        : 'bg-red-900 text-red-300'
                                                     }`}>
                                                     {trade.result === 'win' ? '✅ Ganada' : '❌ Perdida'}
                                                 </span>
@@ -1179,9 +844,7 @@ const TradingJournal = () => {
                     </div>
                 </div>
             </div>
-
         </div>
-
     );
 };
 
