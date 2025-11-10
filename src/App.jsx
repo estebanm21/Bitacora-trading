@@ -70,7 +70,7 @@ function App() {
   return (
     <div className="relative">
       {/* Botón de Logout */}
-      <div className="absolute top-4 right-4 z-50">
+      <div className="absolute top--10 right-10 z-50">
         <button
           onClick={handleLogout}
           className="bg-gray-800 text-gray-300 hover:text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all border border-gray-700 hover:border-gray-600"
