@@ -74,6 +74,32 @@ const TradingJournal = () => {
     }, []);
 
 
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setUser(session?.user ?? null);
+            if (session?.user) {
+                console.log('✅ Usuario autenticado:', session.user.id);
+                console.log('📧 Email:', session.user.email);
+                loadFromCloud(session.user.id);
+            } else {
+                console.log('❌ No hay usuario autenticado');
+            }
+        });
+
+        const {
+            data: { subscription },
+        } = supabase.auth.onAuthStateChange((_event, session) => {
+            setUser(session?.user ?? null);
+            if (session?.user) {
+                console.log('🔄 Cambio de auth:', session.user.id);
+                loadFromCloud(session.user.id);
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
+
+
 
     // // Cargar datos desde Supabase
     // const loadFromCloud = async (user_id) => {
@@ -179,14 +205,48 @@ const TradingJournal = () => {
     };
 
     // Guardar datos en Supabase
+    // const saveToCloud = async () => {
+    //     if (!user) return;
+
+    //     try {
+    //         setIsSyncing(true);
+    //         const journalData = {
+    //             auth_user_id: user.id,
+    //             // NO NECESITAS user_id ya
+    //             initial_capital: initialCapital,
+    //             trades: trades,
+    //             monthly_history: monthlyHistory,
+    //             current_month: currentMonth,
+    //             updated_at: new Date().toISOString()
+    //         };
+
+    //         const { error } = await supabase
+    //             .from('trading_journal')
+    //             .upsert(journalData, { onConflict: 'auth_user_id' });
+
+    //         if (error) throw error;
+
+    //         setLastSync(new Date());
+    //     } catch (error) {
+    //         console.error('Error al guardar en la nube:', error);
+    //     } finally {
+    //         setIsSyncing(false);
+    //     }
+    // };
+
+
     const saveToCloud = async () => {
-        if (!user) return;
+        if (!user) {
+            console.log('❌ No user - no se puede guardar');
+            return;
+        }
+
+        console.log('💾 Intentando guardar para usuario:', user.id);
 
         try {
             setIsSyncing(true);
             const journalData = {
                 auth_user_id: user.id,
-                // user_id: user.email, // Mantener compatibilidad
                 initial_capital: initialCapital,
                 trades: trades,
                 monthly_history: monthlyHistory,
@@ -194,16 +254,21 @@ const TradingJournal = () => {
                 updated_at: new Date().toISOString()
             };
 
+            console.log('📦 Datos a guardar:', journalData);
 
-            const { error } = await supabase
+            const { data, error } = await supabase
                 .from('trading_journal')
                 .upsert(journalData, { onConflict: 'auth_user_id' });
 
-            if (error) throw error;
+            if (error) {
+                console.error('❌ Error al guardar:', error);
+                throw error;
+            }
 
+            console.log('✅ Guardado exitoso:', data);
             setLastSync(new Date());
         } catch (error) {
-            console.error('Error al guardar en la nube:', error);
+            console.error('💥 Error catch:', error);
         } finally {
             setIsSyncing(false);
         }
