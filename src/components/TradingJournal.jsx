@@ -1,15 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, Calendar, BarChart3, PieChart, Plus, Trash2, Download, Upload, Archive, ChevronRight, ArrowLeft, Save, Cloud, CloudOff } from 'lucide-react';
-import { LineChart, Line, BarChart, Bar, PieChart as RePieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { supabase } from '../config/supabase'; // Asegúrate de crear este archivo
-import Swal from 'sweetalert2'
+import {
+    TrendingUp, DollarSign, Calendar, BarChart3, PieChart,
+    Plus, Trash2, Download, Upload, Archive, ChevronRight,
+    ArrowLeft, Save, Cloud, RefreshCw, Settings, X, Eye, EyeOff, Zap
+} from 'lucide-react';
+import {
+    LineChart, Line, BarChart, Bar,
+    PieChart as RePieChart, Pie, Cell,
+    XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from 'recharts';
+import { supabase } from '../config/supabase';
+import Swal from 'sweetalert2';
+import TradeCalendar from './TradeCalendar';
 
 const TradingJournal = () => {
     const [view, setView] = useState('current');
     const [selectedMonth, setSelectedMonth] = useState(null);
-    const [userId, setUserId] = useState('');
     const [isSyncing, setIsSyncing] = useState(false);
+    const [isBybitSyncing, setIsBybitSyncing] = useState(false);
     const [lastSync, setLastSync] = useState(null);
+    const [showBybitConfig, setShowBybitConfig] = useState(false);
+    const [bybitConnected, setBybitConnected] = useState(false);
+    const [bybitLastSync, setBybitLastSync] = useState(null);
+    const [showApiSecret, setShowApiSecret] = useState(false);
+    const [bybitForm, setBybitForm] = useState({ apiKey: '', apiSecret: '' });
 
     const [initialCapital, setInitialCapital] = useState(1000);
     const [trades, setTrades] = useState([]);
@@ -25,157 +39,25 @@ const TradingJournal = () => {
         date: new Date().toISOString().split('T')[0]
     });
 
-    // // Cargar userId del localStorage o generar uno nuevo
-    // useEffect(() => {
-    //     let storedUserId = localStorage.getItem('trading_user_id');
-    //     if (!storedUserId) {
-    //         storedUserId = 'user_' + Math.random().toString(36).substr(2, 9);
-    //         localStorage.setItem('trading_user_id', storedUserId);
-    //     }
-    //     setUserId(storedUserId);
-    //     loadFromCloud(storedUserId);
-    // }, []);
-
-    // // Auto-guardar cada vez que cambien los datos
-    // useEffect(() => {
-    //     if (userId && !isSyncing) {
-    //         const timer = setTimeout(() => {
-    //             saveToCloud();
-    //         }, 2000); // Guarda 2 segundos después del último cambio
-    //         return () => clearTimeout(timer);
-    //     }
-    // }, [trades, monthlyHistory, initialCapital, currentMonth, userId]);
-
-
-
-    // Después de los estados, antes de las funciones
     const [user, setUser] = useState(null);
+    const [allTrades, setAllTrades] = useState([]);
 
+    // ─── Auth ───────────────────────────────────────────────────────────────────
     useEffect(() => {
-        // Verificar sesión actual
         supabase.auth.getSession().then(({ data: { session } }) => {
             setUser(session?.user ?? null);
-            if (session?.user) {
-                loadFromCloud(session.user.id);
-            }
+            if (session?.user) loadFromCloud(session.user.id);
         });
 
-        // Escuchar cambios de autenticación
-        const {
-            data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setUser(session?.user ?? null);
-            if (session?.user) {
-                loadFromCloud(session.user.id);
-            }
+            if (session?.user) loadFromCloud(session.user.id);
         });
 
         return () => subscription.unsubscribe();
     }, []);
 
-
-    useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setUser(session?.user ?? null);
-            if (session?.user) {
-                console.log('✅ Usuario autenticado:', session.user.id);
-                console.log('📧 Email:', session.user.email);
-                loadFromCloud(session.user.id);
-            } else {
-                console.log('❌ No hay usuario autenticado');
-            }
-        });
-
-        const {
-            data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user ?? null);
-            if (session?.user) {
-                console.log('🔄 Cambio de auth:', session.user.id);
-                loadFromCloud(session.user.id);
-            }
-        });
-
-        return () => subscription.unsubscribe();
-    }, []);
-
-
-
-    // // Cargar datos desde Supabase
-    // const loadFromCloud = async (user_id) => {
-    //     try {
-    //         setIsSyncing(true);
-    //         const { data, error } = await supabase
-    //             .from('trading_journal')
-    //             .select('*')
-    //             .eq('user_id', user_id)
-    //             .single();
-
-    //         if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
-    //             console.error('Error al cargar:', error);
-    //             return;
-    //         }
-
-    //         if (data) {
-    //             setInitialCapital(data.initial_capital || 1000);
-    //             setTrades(data.trades || []);
-    //             setMonthlyHistory(data.monthly_history || []);
-    //             setCurrentMonth(data.current_month || new Date().toISOString().slice(0, 7));
-    //             setLastSync(new Date(data.updated_at));
-    //         }
-    //     } catch (error) {
-    //         console.error('Error al cargar desde la nube:', error);
-    //     } finally {
-    //         setIsSyncing(false);
-    //     }
-    // };
-
-    // // Guardar datos en Supabase
-    // const saveToCloud = async () => {
-    //     if (!userId) return;
-
-    //     try {
-    //         setIsSyncing(true);
-    //         const journalData = {
-    //             user_id: userId,
-    //             initial_capital: initialCapital,
-    //             trades: trades,
-    //             monthly_history: monthlyHistory,
-    //             current_month: currentMonth,
-    //             updated_at: new Date().toISOString()
-    //         };
-
-    //         const { error } = await supabase
-    //             .from('trading_journal')
-    //             .upsert(journalData, { onConflict: 'user_id' });
-
-    //         if (error) throw error;
-
-    //         setLastSync(new Date());
-    //     } catch (error) {
-    //         console.error('Error al guardar en la nube:', error);
-
-
-    //         Swal.fire({
-    //             position: "top-end",
-    //             icon: "error",
-    //             text: 'Error al sincronizar con la nube. Verifica tu conexión.',
-    //             showConfirmButton: false,
-    //             timer: 1500,
-    //             background: '#030712',
-    //             color: 'gray'
-    //         });
-
-
-    //     } finally {
-    //         setIsSyncing(false);
-    //     }
-    // };
-
-
-
-
-    // Cargar datos desde Supabase
+    // ─── Cargar desde Supabase ───────────────────────────────────────────────────
     const loadFromCloud = async (authUserId) => {
         try {
             setIsSyncing(true);
@@ -196,6 +78,15 @@ const TradingJournal = () => {
                 setMonthlyHistory(data.monthly_history || []);
                 setCurrentMonth(data.current_month || new Date().toISOString().slice(0, 7));
                 setLastSync(new Date(data.updated_at));
+                setBybitConnected(data.bybit_connected || false);
+                if (data.bybit_last_sync) setBybitLastSync(new Date(data.bybit_last_sync));
+                // Si está conectado a Bybit, sincronizar automáticamente al abrir
+                // if (data.bybit_connected) syncWithBybit();
+                // if (data.bybit_connected) {
+                //     setTimeout(() => syncWithBybit(), 1000);
+                // }
+                if (data.bybit_connected) syncWithBybit(authUserId);
+
             }
         } catch (error) {
             console.error('Error al cargar desde la nube:', error);
@@ -204,204 +95,675 @@ const TradingJournal = () => {
         }
     };
 
-    // Guardar datos en Supabase
-    // const saveToCloud = async () => {
-    //     if (!user) return;
-
-    //     try {
-    //         setIsSyncing(true);
-    //         const journalData = {
-    //             auth_user_id: user.id,
-    //             // NO NECESITAS user_id ya
-    //             initial_capital: initialCapital,
-    //             trades: trades,
-    //             monthly_history: monthlyHistory,
-    //             current_month: currentMonth,
-    //             updated_at: new Date().toISOString()
-    //         };
-
-    //         const { error } = await supabase
-    //             .from('trading_journal')
-    //             .upsert(journalData, { onConflict: 'auth_user_id' });
-
-    //         if (error) throw error;
-
-    //         setLastSync(new Date());
-    //     } catch (error) {
-    //         console.error('Error al guardar en la nube:', error);
-    //     } finally {
-    //         setIsSyncing(false);
-    //     }
-    // };
-
-
+    // ─── Guardar en Supabase ─────────────────────────────────────────────────────
     const saveToCloud = async () => {
-        if (!user) {
-            console.log('❌ No user - no se puede guardar');
-            return;
-        }
-
-        console.log('💾 Intentando guardar para usuario:', user.id);
-
+        if (!user) return;
         try {
             setIsSyncing(true);
-            const journalData = {
-                auth_user_id: user.id,
-                initial_capital: initialCapital,
-                trades: trades,
-                monthly_history: monthlyHistory,
-                current_month: currentMonth,
-                updated_at: new Date().toISOString()
-            };
-
-            console.log('📦 Datos a guardar:', journalData);
-
-            const { data, error } = await supabase
+            const { error } = await supabase
                 .from('trading_journal')
-                .upsert(journalData, { onConflict: 'auth_user_id' });
+                .upsert({
+                    auth_user_id: user.id,
+                    initial_capital: initialCapital,
+                    trades,
+                    monthly_history: monthlyHistory,
+                    current_month: currentMonth,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'auth_user_id' });
 
-            if (error) {
-                console.error('❌ Error al guardar:', error);
-                throw error;
-            }
-
-            console.log('✅ Guardado exitoso:', data);
+            if (error) throw error;
             setLastSync(new Date());
         } catch (error) {
-            console.error('💥 Error catch:', error);
+            console.error('Error al guardar:', error);
         } finally {
             setIsSyncing(false);
         }
     };
 
-    // Auto-guardar cada vez que cambien los datos
+    // Auto-guardar
     useEffect(() => {
         if (user && !isSyncing) {
-            const timer = setTimeout(() => {
-                saveToCloud();
-            }, 2000);
+            const timer = setTimeout(() => saveToCloud(), 2000);
             return () => clearTimeout(timer);
         }
     }, [trades, monthlyHistory, initialCapital, currentMonth, user]);
 
+    // ─── Guardar credenciales Bybit ──────────────────────────────────────────────
+    const saveBybitCredentials = async () => {
+        if (!bybitForm.apiKey || !bybitForm.apiSecret) {
+            Swal.fire({
+                position: 'top-end', icon: 'info',
+                text: 'Ingresa el API Key y API Secret',
+                showConfirmButton: false, timer: 1500,
+                background: '#030712', color: 'gray'
+            });
+            return;
+        }
+
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+
+            const response = await fetch(
+                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bybit-sync`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        // 'Authorization': `Bearer ${session.access_token}`,
+                        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+                    },
+                    body: JSON.stringify({
+                        action: 'save_credentials',
+                        authUserId: user.id,
+                        apiKey: bybitForm.apiKey,
+                        apiSecret: bybitForm.apiSecret,
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (result.success) {
+                setBybitConnected(true);
+                setShowBybitConfig(false);
+                setBybitForm({ apiKey: '', apiSecret: '' });
+                Swal.fire({
+                    position: 'top-end', icon: 'success',
+                    text: '✅ Bybit conectado exitosamente',
+                    showConfirmButton: false, timer: 1500,
+                    background: '#030712', color: 'gray'
+                });
+                // Sincronizar inmediatamente
+                syncWithBybit();
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            Swal.fire({
+                position: 'top-end', icon: 'error',
+                text: `Error al conectar: ${error.message}`,
+                showConfirmButton: false, timer: 2000,
+                background: '#030712', color: 'gray'
+            });
+        }
+    };
+
+    const syncWithBybit = async (overrideUserId = null) => {
+        const userId = overrideUserId || user?.id;
+        if (!userId) return;
+        if (isBybitSyncing) return;
+
+        try {
+            setIsBybitSyncing(true);
+
+            const { data: journal } = await supabase
+                .from('trading_journal')
+                .select('bybit_api_key, bybit_api_secret')
+                .eq('auth_user_id', userId)
+                .single();
+
+            if (!journal?.bybit_api_key) {
+                throw new Error('No hay credenciales de Bybit guardadas');
+            }
+
+            const key = journal.bybit_api_key;
+            const secret = journal.bybit_api_secret;
+            const recvWindow = '5000';
+
+            // ── Función para hacer llamadas firmadas a Bybit ──────────────────
+            const bybitFetch = async (params) => {
+                const ts = Date.now().toString();
+                const signString = `${ts}${key}${recvWindow}${params}`;
+                const enc = new TextEncoder();
+                const ck = await window.crypto.subtle.importKey(
+                    'raw', enc.encode(secret),
+                    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+                );
+                const sb = await window.crypto.subtle.sign('HMAC', ck, enc.encode(signString));
+                const sig = Array.from(new Uint8Array(sb))
+                    .map(b => b.toString(16).padStart(2, '0')).join('');
+
+                const res = await fetch(
+                    `https://api.bybit.com/v5/position/closed-pnl?${params}`,
+                    {
+                        headers: {
+                            'X-BAPI-API-KEY': key,
+                            'X-BAPI-TIMESTAMP': ts,
+                            'X-BAPI-RECV-WINDOW': recvWindow,
+                            'X-BAPI-SIGN': sig,
+                        }
+                    }
+                );
+                return res.json();
+            };
+
+            // ── Paginación — traer todos los trades ───────────────────────────
+            let allResults = [];
+            let cursor = null;
+            let page = 0;
+
+            while (page < 10) {
+                const params = `category=linear&limit=50&settleCoin=USDT${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+                const data = await bybitFetch(params);
+
+                if (data.retCode !== 0) throw new Error(`Bybit error: ${data.retMsg}`);
+
+                const list = data.result?.list || [];
+                allResults = [...allResults, ...list];
+                cursor = data.result?.nextPageCursor;
+                page++;
+
+                if (!cursor || list.length < 50) break;
+            }
+
+            console.log('Total trades traídos:', allResults.length);
+            console.log('Fechas:', allResults.map(t => new Date(parseInt(t.createdTime)).toISOString().split('T')[0]));
+            const now = new Date();
+            const mesActual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+            // ── Mapear todos los trades ───────────────────────────────────────
+            const allMapped = allResults
+                .map(t => ({
+                    id: t.orderId,
+                    pair: t.symbol,
+                    action: t.side === 'Sell' ? 'Short 🔴' : 'Long 🟢',
+                    leverage: parseInt(t.leverage) || 1,
+                    result: parseFloat(t.closedPnl) >= 0 ? 'win' : 'loss',
+                    amount: Math.abs(parseFloat(t.closedPnl || '0')),
+                    date: new Date(parseInt(t.createdTime)).toISOString().split('T')[0],
+                    fromBybit: true,
+                    pnl: parseFloat(t.closedPnl || '0'),
+                    entryPrice: parseFloat(t.avgEntryPrice || '0'),
+                    exitPrice: parseFloat(t.avgExitPrice || '0'),
+                }))
+                .filter(t => t.amount > 0);
+
+            // Guardar TODOS para el calendario
+            setAllTrades(allMapped);
+
+            // Solo mes actual para estadísticas
+            const tradesDelMes = allMapped.filter(t => t.date.startsWith(mesActual));
+
+            // ── Cierre automático si cambió el mes ────────────────────────────
+            const storedMonth = currentMonth || mesActual;
+            if (storedMonth !== mesActual && trades.length > 0) {
+                const monthName = new Date(storedMonth + '-01').toLocaleDateString('es-ES', {
+                    year: 'numeric', month: 'long'
+                });
+
+                const statsDelMesAnterior = calculateStats(trades, initialCapital);
+                const monthData = {
+                    id: Date.now(),
+                    month: storedMonth,
+                    monthName,
+                    initialCapital,
+                    trades: [...trades],
+                    stats: statsDelMesAnterior,
+                    savedDate: new Date().toISOString()
+                };
+
+                setMonthlyHistory(prev => [monthData, ...prev]);
+                setCurrentMonth(mesActual);
+                setInitialCapital(0);
+                setTrades(tradesDelMes);
+
+                Swal.fire({
+                    position: 'top-end', icon: 'success',
+                    text: `📅 Mes ${monthName} cerrado automáticamente. Actualiza tu capital inicial.`,
+                    showConfirmButton: false, timer: 3000,
+                    background: '#030712', color: 'gray'
+                });
+            } else {
+                setCurrentMonth(mesActual);
+                setTrades(tradesDelMes);
+            }
+
+            setBybitLastSync(new Date());
+
+            if (tradesDelMes.length > 0) {
+                Swal.fire({
+                    position: 'top-end', icon: 'success',
+                    text: `🔄 ${tradesDelMes.length} trades de ${mesActual} importados`,
+                    showConfirmButton: false, timer: 2000,
+                    background: '#030712', color: 'gray'
+                });
+            } else {
+                Swal.fire({
+                    position: 'top-end', icon: 'info',
+                    text: `No hay trades cerrados en ${mesActual}`,
+                    showConfirmButton: false, timer: 1500,
+                    background: '#030712', color: 'gray'
+                });
+            }
+
+            await supabase
+                .from('trading_journal')
+                .update({ bybit_last_sync: new Date().toISOString() })
+                .eq('auth_user_id', userId);
+
+        } catch (error) {
+            console.error('Error al sincronizar con Bybit:', error);
+            Swal.fire({
+                position: 'top-end', icon: 'error',
+                text: `Error: ${error.message}`,
+                showConfirmButton: false, timer: 2000,
+                background: '#030712', color: 'gray'
+            });
+        } finally {
+            setIsBybitSyncing(false);
+        }
+    };
+    // const syncWithBybit = async (overrideUserId = null) => {
+    //     const userId = overrideUserId || user?.id;
+    //     if (!userId) return;
+    //     if (isBybitSyncing) return;
+
+    //     try {
+    //         setIsBybitSyncing(true);
+
+    //         const { data: journal } = await supabase
+    //             .from('trading_journal')
+    //             .select('bybit_api_key, bybit_api_secret')
+    //             .eq('auth_user_id', userId)
+    //             .single();
+
+    //         if (!journal?.bybit_api_key) {
+    //             throw new Error('No hay credenciales de Bybit guardadas');
+    //         }
+
+    //         const key = journal.bybit_api_key;
+    //         const secret = journal.bybit_api_secret;
+    //         const timestamp = Date.now().toString();
+    //         const recvWindow = '5000';
+    //         const queryParams = `category=linear&limit=200&settleCoin=USDT`;
+    //         const signStr = `${timestamp}${key}${recvWindow}${queryParams}`;
+
+    //         const encoder = new TextEncoder();
+    //         const cryptoKey = await window.crypto.subtle.importKey(
+    //             'raw', encoder.encode(secret),
+    //             { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+    //         );
+    //         const signBuffer = await window.crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(signStr));
+    //         const signature = Array.from(new Uint8Array(signBuffer))
+    //             .map(b => b.toString(16).padStart(2, '0')).join('');
+
+    //         const response = await fetch(
+    //             `https://api.bybit.com/v5/position/closed-pnl?${queryParams}`,
+    //             {
+    //                 headers: {
+    //                     'X-BAPI-API-KEY': key,
+    //                     'X-BAPI-TIMESTAMP': timestamp,
+    //                     'X-BAPI-RECV-WINDOW': recvWindow,
+    //                     'X-BAPI-SIGN': signature,
+    //                 }
+    //             }
+    //         );
+
+    //         const bybitData = await response.json();
+
+    //         if (bybitData.retCode !== 0) {
+    //             throw new Error(`Bybit error: ${bybitData.retMsg}`);
+    //         }
+
+    //         const now = new Date();
+    //         const mesActual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    //         // Mapear TODOS los trades
+    //         const allMapped = (bybitData.result?.list || [])
+    //             .map(t => ({
+    //                 id: t.orderId,
+    //                 pair: t.symbol,
+    //                 action: t.side === 'Sell' ? 'Short 🔴' : 'Long 🟢',
+    //                 leverage: parseInt(t.leverage) || 1,
+    //                 result: parseFloat(t.closedPnl) >= 0 ? 'win' : 'loss',
+    //                 amount: Math.abs(parseFloat(t.closedPnl || '0')),
+    //                 date: new Date(parseInt(t.createdTime)).toISOString().split('T')[0],
+    //                 fromBybit: true,
+    //                 pnl: parseFloat(t.closedPnl || '0'),
+    //                 entryPrice: parseFloat(t.avgEntryPrice || '0'),
+    //                 exitPrice: parseFloat(t.avgExitPrice || '0'),
+    //             }))
+    //             .filter(t => t.amount > 0);
+
+    //         // Guardar TODOS para el calendario
+    //         setAllTrades(allMapped);
+
+    //         // Solo mes actual para estadísticas
+    //         const tradesDelMes = allMapped.filter(t => t.date.startsWith(mesActual));
+
+    //         // Cierre automático si cambió el mes
+    //         const storedMonth = currentMonth || mesActual;
+    //         if (storedMonth !== mesActual && trades.length > 0) {
+    //             const monthName = new Date(storedMonth + '-01').toLocaleDateString('es-ES', {
+    //                 year: 'numeric', month: 'long'
+    //             });
+
+    //             const statsDelMesAnterior = calculateStats(trades, initialCapital);
+    //             const monthData = {
+    //                 id: Date.now(),
+    //                 month: storedMonth,
+    //                 monthName,
+    //                 initialCapital,
+    //                 trades: [...trades],
+    //                 stats: statsDelMesAnterior,
+    //                 savedDate: new Date().toISOString()
+    //             };
+
+    //             setMonthlyHistory(prev => [monthData, ...prev]);
+    //             setCurrentMonth(mesActual);
+    //             setInitialCapital(0);
+    //             setTrades(tradesDelMes);
+
+    //             Swal.fire({
+    //                 position: 'top-end', icon: 'success',
+    //                 text: `📅 Mes ${monthName} cerrado automáticamente. Actualiza tu capital inicial.`,
+    //                 showConfirmButton: false, timer: 3000,
+    //                 background: '#030712', color: 'gray'
+    //             });
+    //         } else {
+    //             setCurrentMonth(mesActual);
+    //             setTrades(tradesDelMes);
+    //         }
+
+    //         setBybitLastSync(new Date());
+
+    //         if (tradesDelMes.length > 0) {
+    //             Swal.fire({
+    //                 position: 'top-end', icon: 'success',
+    //                 text: `🔄 ${tradesDelMes.length} trades de ${mesActual} importados`,
+    //                 showConfirmButton: false, timer: 2000,
+    //                 background: '#030712', color: 'gray'
+    //             });
+    //         } else {
+    //             Swal.fire({
+    //                 position: 'top-end', icon: 'info',
+    //                 text: `No hay trades cerrados en ${mesActual}`,
+    //                 showConfirmButton: false, timer: 1500,
+    //                 background: '#030712', color: 'gray'
+    //             });
+    //         }
+
+    //         await supabase
+    //             .from('trading_journal')
+    //             .update({ bybit_last_sync: new Date().toISOString() })
+    //             .eq('auth_user_id', userId);
+
+    //     } catch (error) {
+    //         console.error('Error al sincronizar con Bybit:', error);
+    //         Swal.fire({
+    //             position: 'top-end', icon: 'error',
+    //             text: `Error: ${error.message}`,
+    //             showConfirmButton: false, timer: 2000,
+    //             background: '#030712', color: 'gray'
+    //         });
+    //     } finally {
+    //         setIsBybitSyncing(false);
+    //     }
+    // };
+
+    // const syncWithBybit = async (overrideUserId = null) => {
+    //     const userId = overrideUserId || user?.id;
+    //     if (!userId) return;
+    //     if (isBybitSyncing) return;
+
+    //     try {
+    //         setIsBybitSyncing(true);
+
+    //         const { data: journal } = await supabase
+    //             .from('trading_journal')
+    //             .select('bybit_api_key, bybit_api_secret')
+    //             .eq('auth_user_id', userId)
+    //             .single();
+
+    //         if (!journal?.bybit_api_key) {
+    //             throw new Error('No hay credenciales de Bybit guardadas');
+    //         }
+
+    //         const key = journal.bybit_api_key;
+    //         const secret = journal.bybit_api_secret;
+    //         const timestamp = Date.now().toString();
+    //         const recvWindow = '5000';
+    //         const queryParams = `category=linear&limit=50&settleCoin=USDT`;
+    //         const signStr = `${timestamp}${key}${recvWindow}${queryParams}`;
+
+    //         const encoder = new TextEncoder();
+    //         const cryptoKey = await window.crypto.subtle.importKey(
+    //             'raw', encoder.encode(secret),
+    //             { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+    //         );
+    //         const signBuffer = await window.crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(signStr));
+    //         const signature = Array.from(new Uint8Array(signBuffer))
+    //             .map(b => b.toString(16).padStart(2, '0')).join('');
+
+    //         const response = await fetch(
+    //             `https://api.bybit.com/v5/position/closed-pnl?${queryParams}`,
+    //             {
+    //                 headers: {
+    //                     'X-BAPI-API-KEY': key,
+    //                     'X-BAPI-TIMESTAMP': timestamp,
+    //                     'X-BAPI-RECV-WINDOW': recvWindow,
+    //                     'X-BAPI-SIGN': signature,
+    //                 }
+    //             }
+    //         );
+
+    //         const bybitData = await response.json();
+
+    //         if (bybitData.retCode !== 0) {
+    //             throw new Error(`Bybit error: ${bybitData.retMsg}`);
+    //         }
+
+    //         // Mes actual
+    //         const now = new Date();
+
+
+    //         const mesActual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+
+
+    //         const allMapped = (bybitData.result?.list || [])
+    //             .map(t => ({
+    //                 id: t.orderId,
+    //                 pair: t.symbol,
+    //                 action: t.side === 'Sell' ? 'Short 🔴' : 'Long 🟢',
+    //                 leverage: parseInt(t.leverage) || 1,
+    //                 result: parseFloat(t.closedPnl) >= 0 ? 'win' : 'loss',
+    //                 amount: Math.abs(parseFloat(t.closedPnl || '0')),
+    //                 date: new Date(parseInt(t.createdTime)).toISOString().split('T')[0],
+    //                 fromBybit: true,
+    //                 pnl: parseFloat(t.closedPnl || '0'),
+    //                 entryPrice: parseFloat(t.avgEntryPrice || '0'),
+    //                 exitPrice: parseFloat(t.avgExitPrice || '0'),
+    //             }))
+    //             .filter(t => {
+    //                 console.log('Trade date:', t.date, 'mesActual:', mesActual, 'match:', t.date.startsWith(mesActual));
+    //                 return t.amount > 0 && t.date.startsWith(mesActual);
+    //             });
+
+    //         // Guardar TODOS para el calendario
+    //         setAllTrades(allMapped);
+    //         // Solo mes actual para estadísticas
+
+
+    //         // Solo mes actual para estadísticas
+    //         const tradesDelMes = allMapped.filter(t => t.date.startsWith(mesActual));
+
+
+
+
+
+
+    //         // ── Cierre automático de mes anterior ──────────────────────────────
+    //         const storedMonth = currentMonth || mesActual;
+    //         if (storedMonth !== mesActual) {
+    //             // El mes cambió — guardar el mes anterior automáticamente
+    //             const monthName = new Date(currentMonth + '-01').toLocaleDateString('es-ES', {
+    //                 year: 'numeric', month: 'long'
+    //             });
+
+    //             const statsDelMesAnterior = calculateStats(trades, initialCapital);
+
+    //             const monthData = {
+    //                 id: Date.now(),
+    //                 month: currentMonth,
+    //                 monthName,
+    //                 initialCapital,
+    //                 trades: [...trades],
+    //                 stats: statsDelMesAnterior,
+    //                 savedDate: new Date().toISOString()
+    //             };
+
+    //             const newHistory = [monthData, ...monthlyHistory];
+    //             setMonthlyHistory(newHistory);
+    //             setCurrentMonth(mesActual);
+    //             setInitialCapital(0); // Reset para que el usuario lo edite
+    //             setTrades(tradesDelMes);
+
+    //             Swal.fire({
+    //                 position: 'top-end', icon: 'success',
+    //                 text: `📅 Mes ${monthName} cerrado automáticamente. Actualiza tu capital inicial.`,
+    //                 showConfirmButton: false, timer: 3000,
+    //                 background: '#030712', color: 'gray'
+    //             });
+    //         } else {
+    //             // Solo mostrar trades del mes actual
+    //             const soloMesActual = tradesDelMes.filter(t => t.date.startsWith(mesActual));
+    //             setTrades(soloMesActual);
+    //         }
+
+    //         setCurrentMonth(mesActual);
+    //         setBybitLastSync(new Date());
+
+    //         if (tradesDelMes.length > 0) {
+    //             Swal.fire({
+    //                 position: 'top-end', icon: 'success',
+    //                 text: `🔄 ${tradesDelMes.length} trades de ${mesActual} importados`,
+    //                 showConfirmButton: false, timer: 2000,
+    //                 background: '#030712', color: 'gray'
+    //             });
+    //         } else {
+    //             Swal.fire({
+    //                 position: 'top-end', icon: 'info',
+    //                 text: `No hay trades cerrados en ${mesActual}`,
+    //                 showConfirmButton: false, timer: 1500,
+    //                 background: '#030712', color: 'gray'
+    //             });
+    //         }
+
+    //         await supabase
+    //             .from('trading_journal')
+    //             .update({ bybit_last_sync: new Date().toISOString() })
+    //             .eq('auth_user_id', userId);
+
+    //     } catch (error) {
+    //         console.error('Error al sincronizar con Bybit:', error);
+    //         Swal.fire({
+    //             position: 'top-end', icon: 'error',
+    //             text: `Error: ${error.message}`,
+    //             showConfirmButton: false, timer: 2000,
+    //             background: '#030712', color: 'gray'
+    //         });
+    //     } finally {
+    //         setIsBybitSyncing(false);
+    //     }
+    // };
+
+    // ─── Desconectar Bybit ───────────────────────────────────────────────────────
+    const disconnectBybit = async () => {
+        const result = await Swal.fire({
+            text: '¿Desconectar Bybit? Los trades actuales se conservarán.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#374151',
+            confirmButtonText: 'Sí, desconectar',
+            background: '#030712', color: 'gray'
+        });
+
+        if (result.isConfirmed) {
+            await supabase
+                .from('trading_journal')
+                .update({ bybit_connected: false, bybit_api_key: null, bybit_api_secret: null })
+                .eq('auth_user_id', user.id);
+            setBybitConnected(false);
+        }
+    };
+
+    // ─── Estadísticas ────────────────────────────────────────────────────────────
     const calculateStats = (tradesList, initialCap) => {
         let currentBalance = initialCap;
-        let totalWins = 0;
-        let totalLosses = 0;
-        let winAmount = 0;
-        let lossAmount = 0;
-        let maxDrawdown = 0;
-        let peak = initialCap;
-
-
+        let totalWins = 0, totalLosses = 0;
+        let winAmount = 0, lossAmount = 0;
+        let maxDrawdown = 0, peak = initialCap;
 
         const balanceHistory = [{ date: 'Inicio', balance: initialCap }];
 
         tradesList.forEach((trade, index) => {
             const amount = parseFloat(trade.amount) || 0;
             if (trade.result === 'win') {
-                currentBalance += amount;
-                totalWins++;
-                winAmount += amount;
+                currentBalance += amount; totalWins++; winAmount += amount;
             } else {
-                currentBalance -= amount;
-                totalLosses++;
-                lossAmount += amount;
+                currentBalance -= amount; totalLosses++; lossAmount += amount;
             }
-
             if (currentBalance > peak) peak = currentBalance;
             const drawdown = ((peak - currentBalance) / peak) * 100;
             if (drawdown > maxDrawdown) maxDrawdown = drawdown;
-
-            balanceHistory.push({
-                date: `Op ${index + 1}`,
-                balance: currentBalance
-            });
+            balanceHistory.push({ date: `Op ${index + 1}`, balance: parseFloat(currentBalance.toFixed(2)) });
         });
 
         const totalTrades = tradesList.length;
         const winRate = totalTrades > 0 ? (totalWins / totalTrades) * 100 : 0;
         const profitLoss = currentBalance - initialCap;
-        const roi = initialCap > 0 ? ((profitLoss / initialCap) * 100) : 0;
-
-        let totalProfit = winAmount - lossAmount
-
+        const roi = initialCap > 0 ? (profitLoss / initialCap) * 100 : 0;
 
         return {
-            currentBalance,
-            totalWins,
-            totalLosses,
-            totalTrades,
-            winRate,
-            profitLoss,
-            roi,
-            winAmount,
-            lossAmount,
-            maxDrawdown,
-            balanceHistory,
-            totalProfit
+            currentBalance, totalWins, totalLosses, totalTrades,
+            winRate, profitLoss, roi, winAmount, lossAmount,
+            maxDrawdown, balanceHistory, totalProfit: winAmount - lossAmount
         };
     };
 
     const stats = calculateStats(trades, initialCapital);
 
+    // ─── CRUD trades ─────────────────────────────────────────────────────────────
     const addTrade = () => {
         if (!newTrade.pair || newTrade.amount <= 0) {
-
             Swal.fire({
-                position: "top-end",
-                icon: "info",
+                position: 'top-end', icon: 'info',
                 text: 'Por favor completa todos los campos correctamente',
-                showConfirmButton: false,
-                timer: 1500,
-                background: '#030712',
-                color: 'gray'
+                showConfirmButton: false, timer: 1500,
+                background: '#030712', color: 'gray'
             });
             return;
         }
-
         setTrades([...trades, { ...newTrade, id: Date.now() }]);
         setNewTrade({
-            pair: '',
-            action: 'Long 🟢',
-            leverage: 1,
-            result: 'win',
-            amount: 0,
+            pair: '', action: 'Long 🟢', leverage: 1,
+            result: 'win', amount: 0,
             date: new Date().toISOString().split('T')[0]
         });
     };
 
-    const deleteTrade = (id) => {
-        setTrades(trades.filter(t => t.id !== id));
-    };
+    const deleteTrade = (id) => setTrades(trades.filter(t => t.id !== id));
 
     const saveCurrentMonth = () => {
         if (trades.length === 0) {
-
             Swal.fire({
-                position: "top-end",
-                icon: "info",
+                position: 'top-end', icon: 'info',
                 text: 'No hay operaciones para guardar',
-                showConfirmButton: false,
-                timer: 1500,
-                background: '#030712',
-                color: 'gray'
+                showConfirmButton: false, timer: 1500,
+                background: '#030712', color: 'gray'
             });
             return;
         }
 
         const monthName = new Date(currentMonth + '-01').toLocaleDateString('es-ES', {
-            year: 'numeric',
-            month: 'long'
+            year: 'numeric', month: 'long'
         });
 
         const monthData = {
-            id: Date.now(),
-            month: currentMonth,
-            monthName: monthName,
-            initialCapital: initialCapital,
-            trades: [...trades],
-            stats: stats,
+            id: Date.now(), month: currentMonth, monthName,
+            initialCapital, trades: [...trades], stats,
             savedDate: new Date().toISOString()
         };
 
@@ -410,68 +772,34 @@ const TradingJournal = () => {
         setTrades([]);
         setCurrentMonth(new Date().toISOString().slice(0, 7));
 
-
         Swal.fire({
-            position: "top-end",
-            icon: "success",
-            text: `✅ Mes guardado exitosamente: ${monthName}`,
-            showConfirmButton: false,
-            timer: 1500,
-            background: '#030712',
-            color: 'gray'
+            position: 'top-end', icon: 'success',
+            text: `✅ Mes guardado: ${monthName}`,
+            showConfirmButton: false, timer: 1500,
+            background: '#030712', color: 'gray'
         });
-    };
-
-    const viewMonthDetails = (monthData) => {
-        setSelectedMonth(monthData);
-        setView('monthDetail');
     };
 
     const deleteMonth = (id) => {
-
-
-
-
-
         Swal.fire({
-
-            text: "¿Estás seguro de eliminar este mes?",
-            icon: "warning",
-            showCancelButton: true,
-            confirmButtonColor: "#3085d6",
-            cancelButtonColor: "#d33",
-            confirmButtonText: "Si, Eliminar",
-            background: '#030712',
-            color: 'gray'
+            text: '¿Estás seguro de eliminar este mes?',
+            icon: 'warning', showCancelButton: true,
+            confirmButtonColor: '#3085d6', cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, eliminar',
+            background: '#030712', color: 'gray'
         }).then((result) => {
             if (result.isConfirmed) {
+                setMonthlyHistory(monthlyHistory.filter(m => m.id !== id));
                 Swal.fire({
-                    title: "Deleted!",
-                    text: "El mes ha sido eliminado",
-                    icon: "success",
-                    background: '#030712',
-                    color: 'gray'
+                    title: 'Eliminado', text: 'El mes ha sido eliminado',
+                    icon: 'success', background: '#030712', color: 'gray'
                 });
-
-                {
-                    setMonthlyHistory(monthlyHistory.filter(m => m.id !== id));
-                }
             }
         });
-
-
-
     };
 
     const exportData = () => {
-        const data = {
-            initialCapital,
-            trades,
-            monthlyHistory,
-            currentMonth,
-            userId,
-            exportDate: new Date().toISOString()
-        };
+        const data = { initialCapital, trades, monthlyHistory, currentMonth, exportDate: new Date().toISOString() };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -482,102 +810,167 @@ const TradingJournal = () => {
 
     const importData = (e) => {
         const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                try {
-                    const data = JSON.parse(event.target.result);
-                    setInitialCapital(data.initialCapital || 1000);
-                    setTrades(data.trades || []);
-                    setMonthlyHistory(data.monthlyHistory || []);
-                    setCurrentMonth(data.currentMonth || new Date().toISOString().slice(0, 7));
-
-                    Swal.fire({
-                        position: "top-end",
-                        icon: "success",
-                        text: ' Datos importados exitosamente',
-                        showConfirmButton: false,
-                        timer: 1500,
-                        background: '#030712',
-                        color: 'gray'
-                    });
-
-
-
-                } catch (error) {
-
-
-                    Swal.fire({
-                        position: "top-end",
-                        icon: "Error",
-                        text: `Error al importar el archivo`,
-                        showConfirmButton: false,
-                        timer: 1500,
-                        background: '#030712',
-                        color: 'gray'
-                    });
-                }
-            };
-            reader.readAsText(file);
-        }
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const data = JSON.parse(event.target.result);
+                setInitialCapital(data.initialCapital || 1000);
+                setTrades(data.trades || []);
+                setMonthlyHistory(data.monthlyHistory || []);
+                setCurrentMonth(data.currentMonth || new Date().toISOString().slice(0, 7));
+                Swal.fire({
+                    position: 'top-end', icon: 'success',
+                    text: 'Datos importados exitosamente',
+                    showConfirmButton: false, timer: 1500,
+                    background: '#030712', color: 'gray'
+                });
+            } catch {
+                Swal.fire({
+                    position: 'top-end', icon: 'error',
+                    text: 'Error al importar el archivo',
+                    showConfirmButton: false, timer: 1500,
+                    background: '#030712', color: 'gray'
+                });
+            }
+        };
+        reader.readAsText(file);
     };
 
-    const pairDistribution = {};
-    const tradesForChart = view === 'monthDetail' ? selectedMonth?.trades : trades;
-    (tradesForChart || []).forEach(trade => {
-        pairDistribution[trade.pair] = (pairDistribution[trade.pair] || 0) + 1;
-    });
-    const pairData = Object.entries(pairDistribution).map(([name, value]) => ({ name, value }));
-
+    // ─── Chart data ──────────────────────────────────────────────────────────────
     const currentStats = view === 'monthDetail' ? selectedMonth?.stats : stats;
     const resultData = [
         { name: 'Ganadas', value: currentStats?.totalWins || 0, color: '#10b981' },
         { name: 'Perdidas', value: currentStats?.totalLosses || 0, color: '#ef4444' }
     ];
-
-    // const COLORS = ['#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
     const COLORS = ['#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 
+    // ─── Indicators ──────────────────────────────────────────────────────────────
     const SyncIndicator = () => (
-        <div className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm ${isSyncing ? 'bg-orange-900/100 border-orange-500/30' : 'bg-green-900/100 border-green-500/30'
-            }`}>
-            {isSyncing ? (
-                <>
-                    <Cloud className="w-4 h-4 animate-pulse" />
-                    <span className="text-white">Sincronizando...</span>
-                </>
-            ) : (
-                <>
-                    <Cloud className="w-4 h-4" />
-                    <span className="text-white">
-                        {lastSync ? `Sincronizado ${lastSync.toLocaleTimeString()}` : 'Sincronizado'}
-                    </span>
-                </>
-            )}
+        <div className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm ${isSyncing ? 'bg-orange-900/100' : 'bg-green-900/100'}`}>
+            <Cloud className="w-4 h-4" />
+            <span className="text-white">
+                {isSyncing ? 'Sincronizando...' : lastSync ? `Sync ${lastSync.toLocaleTimeString()}` : 'Sincronizado'}
+            </span>
         </div>
     );
 
+    const BybitIndicator = () => (
+        <div
+            onClick={bybitConnected ? syncWithBybit : () => setShowBybitConfig(true)}
+            className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm cursor-pointer transition-all ${bybitConnected
+                ? 'bg-cyan-900/50 border border-cyan-500/30 hover:bg-cyan-900/80'
+                : 'bg-gray-800 border border-gray-700 hover:bg-gray-700'
+                }`}
+        >
+            {isBybitSyncing ? (
+                <RefreshCw className="w-4 h-4 text-cyan-400 animate-spin" />
+            ) : (
+                <Zap className={`w-4 h-4 ${bybitConnected ? 'text-cyan-400' : 'text-gray-400'}`} />
+            )}
+            <span className={bybitConnected ? 'text-cyan-300' : 'text-gray-400'}>
+                {isBybitSyncing
+                    ? 'Importando...'
+                    : bybitConnected
+                        ? bybitLastSync ? `Bybit · ${bybitLastSync.toLocaleTimeString()}` : 'Bybit conectado'
+                        : 'Conectar Bybit'}
+            </span>
+        </div>
+    );
 
-    // Vista de Historial Mensual
+    // ─── Modal Bybit Config ──────────────────────────────────────────────────────
+    const BybitConfigModal = () => (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="bg-gray-900 rounded-2xl border border-gray-700 p-6 w-full max-w-md shadow-2xl">
+                <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                        <Zap className="w-5 h-5 text-cyan-400" />
+                        Conectar Bybit
+                    </h2>
+                    <button onClick={() => setShowBybitConfig(false)} className="text-gray-400 hover:text-white">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+                <div className="bg-cyan-900/20 border border-cyan-500/30 rounded-lg p-3 mb-4 text-sm text-cyan-300">
+                    🔒 Tus credenciales se guardan encriptadas en tu base de datos personal. Usa solo permisos <strong>Read-Only</strong>.
+                </div>
+
+                <div className="space-y-4">
+                    <div>
+                        <label className="text-gray-400 text-sm mb-2 block">API Key</label>
+                        <input
+                            type="text"
+                            placeholder="Tu API Key de Bybit"
+                            value={bybitForm.apiKey}
+                            onChange={(e) => setBybitForm({ ...bybitForm, apiKey: e.target.value })}
+                            className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-cyan-500 focus:outline-none font-mono text-sm"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="text-gray-400 text-sm mb-2 block">API Secret</label>
+                        <div className="relative">
+                            <input
+                                type={showApiSecret ? 'text' : 'password'}
+                                placeholder="Tu API Secret de Bybit"
+                                value={bybitForm.apiSecret}
+                                onChange={(e) => setBybitForm({ ...bybitForm, apiSecret: e.target.value })}
+                                className="w-full bg-gray-800 text-white px-4 py-2 pr-10 rounded-lg border border-gray-700 focus:border-cyan-500 focus:outline-none font-mono text-sm"
+                            />
+                            <button
+                                onClick={() => setShowApiSecret(!showApiSecret)}
+                                className="absolute right-3 top-2.5 text-gray-400 hover:text-white"
+                            >
+                                {showApiSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                    <button
+                        onClick={() => setShowBybitConfig(false)}
+                        className="flex-1 bg-gray-800 text-gray-300 py-2 rounded-lg hover:bg-gray-700 transition-all"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        onClick={saveBybitCredentials}
+                        className="flex-1 bg-cyan-600 text-white py-2 rounded-lg hover:bg-cyan-700 transition-all font-bold"
+                    >
+                        Conectar y Sincronizar
+                    </button>
+                </div>
+
+                {bybitConnected && (
+                    <button
+                        onClick={disconnectBybit}
+                        className="w-full mt-3 text-red-400 text-sm hover:text-red-300 transition-colors"
+                    >
+                        Desconectar Bybit
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // VISTA: Historial Mensual
+    // ════════════════════════════════════════════════════════════════════════════
     if (view === 'history') {
         return (
-
             <div className="min-h-screen bg-gray-950 p-4 md:p-8">
-
                 <div className="max-w-7xl mx-auto">
                     <div className="bg-gray-900 rounded-2xl shadow-2xl p-6 mb-6 border border-gray-800">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
-                                <button
-                                    onClick={() => setView('current')}
-                                    className="bg-white text-gray-600 p-2 rounded-lg hover:bg-purple-50 transition-all"
-                                >
+                                <button onClick={() => setView('current')} className="bg-white text-gray-600 p-2 rounded-lg hover:bg-purple-50 transition-all">
                                     <ArrowLeft className="w-6 h-6" />
                                 </button>
                                 <div>
                                     <h1 className="text-4xl font-bold text-white flex items-center gap-3">
-                                        <Archive className="w-10 h-10" />
-                                        Historial Mensual
+                                        <Archive className="w-10 h-10" /> Historial Mensual
                                     </h1>
                                     <p className="text-purple-100">Todos tus meses guardados</p>
                                 </div>
@@ -586,7 +979,7 @@ const TradingJournal = () => {
                     </div>
 
                     {monthlyHistory.length === 0 ? (
-                        <div className="bg-slate-800 rounded-xl shadow-xl p-12 text-center border border-slate-700">
+                        <div className="bg-slate-800 rounded-xl p-12 text-center border border-slate-700">
                             <Archive className="w-20 h-20 text-slate-600 mx-auto mb-4" />
                             <h3 className="text-2xl font-bold text-slate-400 mb-2">No hay meses guardados</h3>
                             <p className="text-slate-500">Guarda tu primer mes desde la vista actual</p>
@@ -596,53 +989,29 @@ const TradingJournal = () => {
                             {monthlyHistory.map((monthData) => (
                                 <div
                                     key={monthData.id}
-                                    className="bg-slate-800 rounded-xl shadow-xl p-6 border border-slate-700 hover:border-cyan-500 transition-all cursor-pointer"
-                                    onClick={() => viewMonthDetails(monthData)}
+                                    className="bg-slate-800 rounded-xl p-6 border border-slate-700 hover:border-cyan-500 transition-all cursor-pointer"
+                                    onClick={() => { setSelectedMonth(monthData); setView('monthDetail'); }}
                                 >
                                     <div className="flex items-center justify-between mb-4">
-                                        <h3 className="text-xl font-bold text-blue-400 capitalize">
-                                            {monthData.monthName}
-                                        </h3>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                deleteMonth(monthData.id);
-                                            }}
-                                            className="text-red-400 hover:text-red-300 transition-colors"
-                                        >
+                                        <h3 className="text-xl font-bold text-blue-400 capitalize">{monthData.monthName}</h3>
+                                        <button onClick={(e) => { e.stopPropagation(); deleteMonth(monthData.id); }} className="text-red-400 hover:text-red-300">
                                             <Trash2 className="w-5 h-5" />
                                         </button>
                                     </div>
-
                                     <div className="space-y-3">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-slate-400">Balance Final</span>
-                                            <span className="text-white font-bold text-lg">
-                                                ${monthData.stats.currentBalance.toFixed(2)}
-                                            </span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-slate-400">P/L</span>
-                                            <span className={`font-bold ${monthData.stats.profitLoss >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                                {monthData.stats.profitLoss >= 0 ? '+' : ''}${monthData.stats.profitLoss.toFixed(2)}
-                                            </span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-slate-400">ROI</span>
-                                            <span className={`font-bold ${monthData.stats.roi >= 0 ? 'text-blue-400' : 'text-red-400'}`}>
-                                                {monthData.stats.roi.toFixed(2)}%
-                                            </span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-slate-400">Operaciones</span>
-                                            <span className="text-white font-bold">{monthData.stats.totalTrades}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-slate-400">Win Rate</span>
-                                            <span className="text-purple-400 font-bold">{monthData.stats.winRate.toFixed(1)}%</span>
-                                        </div>
+                                        {[
+                                            ['Balance Final', `$${monthData.stats.currentBalance.toFixed(2)}`, 'text-white'],
+                                            ['P/L', `${monthData.stats.profitLoss >= 0 ? '+' : ''}$${monthData.stats.profitLoss.toFixed(2)}`, monthData.stats.profitLoss >= 0 ? 'text-green-400' : 'text-red-400'],
+                                            ['ROI', `${monthData.stats.roi.toFixed(2)}%`, monthData.stats.roi >= 0 ? 'text-blue-400' : 'text-red-400'],
+                                            ['Operaciones', monthData.stats.totalTrades, 'text-white'],
+                                            ['Win Rate', `${monthData.stats.winRate.toFixed(1)}%`, 'text-purple-400'],
+                                        ].map(([label, value, color]) => (
+                                            <div key={label} className="flex justify-between items-center">
+                                                <span className="text-slate-400">{label}</span>
+                                                <span className={`font-bold ${color}`}>{value}</span>
+                                            </div>
+                                        ))}
                                     </div>
-
                                     <div className="mt-4 pt-4 border-t border-slate-700 flex items-center justify-between text-slate-500 text-xs">
                                         <span>Ver detalles</span>
                                         <ChevronRight className="w-4 h-4" />
@@ -656,78 +1025,43 @@ const TradingJournal = () => {
         );
     }
 
-    // Vista de Detalle de Mes
+    // ════════════════════════════════════════════════════════════════════════════
+    // VISTA: Detalle de Mes
+    // ════════════════════════════════════════════════════════════════════════════
     if (view === 'monthDetail' && selectedMonth) {
         return (
             <div className="min-h-screen bg-gray-950 p-4 md:p-8">
                 <div className="max-w-7xl mx-auto">
                     <div className="bg-gray-900 rounded-2xl shadow-2xl p-6 mb-6 border border-gray-800">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <button
-                                    onClick={() => setView('history')}
-                                    className="bg-white text-purple-600 p-2 rounded-lg hover:bg-purple-50 transition-all"
-                                >
-                                    <ArrowLeft className="w-6 h-6" />
-                                </button>
-                                <div>
-                                    <h1 className="text-4xl font-bold text-white capitalize">
-                                        {selectedMonth.monthName}
-                                    </h1>
-                                    <p className="text-purple-100">Detalles completos del mes</p>
-                                </div>
+                        <div className="flex items-center gap-4">
+                            <button onClick={() => setView('history')} className="bg-white text-purple-600 p-2 rounded-lg hover:bg-purple-50 transition-all">
+                                <ArrowLeft className="w-6 h-6" />
+                            </button>
+                            <div>
+                                <h1 className="text-4xl font-bold text-white capitalize">{selectedMonth.monthName}</h1>
+                                <p className="text-purple-100">Detalles completos del mes</p>
                             </div>
                         </div>
                     </div>
 
-                    {/* Dashboard Stats del Mes */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                        <div className={`rounded-xl p-6 shadow-lg border ${stats.profitLoss >= 0 ? 'bg-green-900/20 border-green-500/30' : 'bg-red-900/20 border-red-500/30'}`}>
-                            <div className="flex items-center justify-between mb-2">
-                                <DollarSign className="w-10 h-10 text-white" />
-                                <span className="text-white text-sm font-semibold">Balance Final</span>
+                        {[
+                            { icon: <DollarSign className="w-10 h-10 text-white" />, label: 'Balance Final', value: `$${selectedMonth.stats.currentBalance.toFixed(2)}`, sub: `Inicial: $${selectedMonth.initialCapital.toFixed(2)}`, bg: selectedMonth.stats.profitLoss >= 0 ? 'bg-green-900/20 border-green-500/30' : 'bg-red-900/20 border-red-500/30' },
+                            { icon: <TrendingUp className="w-10 h-10 text-white" />, label: 'ROI', value: `${selectedMonth.stats.roi.toFixed(2)}%`, sub: `${selectedMonth.stats.profitLoss >= 0 ? '+' : ''}${selectedMonth.stats.profitLoss.toFixed(2)} USDT`, bg: 'bg-blue-900/20 border-blue-500/30' },
+                            { icon: <PieChart className="w-10 h-10 text-white" />, label: 'Win Rate', value: `${selectedMonth.stats.winRate.toFixed(1)}%`, sub: `${selectedMonth.stats.totalWins}W / ${selectedMonth.stats.totalLosses}L`, bg: 'bg-purple-900/20 border-purple-500/30' },
+                            { icon: <BarChart3 className="w-10 h-10 text-white" />, label: 'Total Trades', value: selectedMonth.stats.totalTrades, sub: 'Operaciones del mes', bg: 'bg-amber-900/20 border-amber-500/30' },
+                        ].map(({ icon, label, value, sub, bg }) => (
+                            <div key={label} className={`rounded-xl p-6 shadow-lg border ${bg}`}>
+                                <div className="flex items-center justify-between mb-2">{icon}<span className="text-white text-sm font-semibold">{label}</span></div>
+                                <p className="text-3xl font-bold text-white">{value}</p>
+                                <p className="text-sm mt-1 text-gray-300">{sub}</p>
                             </div>
-                            <p className="text-3xl font-bold text-white">${selectedMonth.stats.currentBalance.toFixed(2)}</p>
-                            <p className={`text-sm mt-1 ${selectedMonth.stats.profitLoss >= 0 ? 'text-green-100' : 'text-red-100'}`}>
-                                Inicial: ${selectedMonth.initialCapital.toFixed(2)}
-                            </p>
-                        </div>
-
-                        <div className="bg-blue-900/20 border border-blue-500/30 rounded-xl p-6 shadow-lg">
-                            <div className="flex items-center justify-between mb-2">
-                                <TrendingUp className="w-10 h-10 text-white" />
-                                <span className="text-white text-sm font-semibold">ROI</span>
-                            </div>
-                            <p className="text-3xl font-bold text-white">{selectedMonth.stats.roi.toFixed(2)}%</p>
-                            <p className="text-blue-100 text-sm mt-1">
-                                {selectedMonth.stats.profitLoss >= 0 ? '+' : ''}{selectedMonth.stats.profitLoss.toFixed(2)} USDT
-                            </p>
-                        </div>
-
-                        <div className="bg-purple-900/20 border border-purple-500/30 rounded-xl p-6 shadow-lg">
-                            <div className="flex items-center justify-between mb-2">
-                                <PieChart className="w-10 h-10 text-white" />
-                                <span className="text-white text-sm font-semibold">Win Rate</span>
-                            </div>
-                            <p className="text-3xl font-bold text-white">{selectedMonth.stats.winRate.toFixed(1)}%</p>
-                            <p className="text-purple-100 text-sm mt-1">{selectedMonth.stats.totalWins}W / {selectedMonth.stats.totalLosses}L</p>
-                        </div>
-
-                        <div className="bg-amber-900/20 border border-amber-500/30 rounded-xl p-6 shadow-lg">
-                            <div className="flex items-center justify-between mb-2">
-                                <BarChart3 className="w-10 h-10 text-white" />
-                                <span className="text-white text-sm font-semibold">Total Trades</span>
-                            </div>
-                            <p className="text-3xl font-bold text-white">{selectedMonth.stats.totalTrades}</p>
-                            <p className="text-orange-100 text-sm mt-1">Operaciones del mes</p>
-                        </div>
+                        ))}
                     </div>
 
-                    {/* Gráficas */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                        <div className="bg-slate-800 rounded-xl shadow-xl p-6 border border-slate-700">
+                        <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
                             <h3 className="text-xl font-bold text-cyan-400 mb-4">📈 Evolución del Balance</h3>
-
                             <ResponsiveContainer width="100%" height={300}>
                                 <LineChart data={selectedMonth.stats.balanceHistory}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -738,24 +1072,12 @@ const TradingJournal = () => {
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
-
-                        <div className="bg-slate-800 rounded-xl shadow-xl p-6 border border-slate-700">
-                            <h3 className="text-xl font-bold text-cyan-400 mb-4"    >🎯 Distribución de Resultados</h3>
+                        <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
+                            <h3 className="text-xl font-bold text-cyan-400 mb-4">🎯 Distribución de Resultados</h3>
                             <ResponsiveContainer width="100%" height={300}>
                                 <RePieChart>
-                                    <Pie
-                                        data={resultData}
-                                        cx="50%"
-                                        cy="50%"
-                                        labelLine={false}
-                                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                        outerRadius={100}
-                                        fill="#8884d8"
-                                        dataKey="value"
-                                    >
-                                        {resultData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
+                                    <Pie data={resultData} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`} outerRadius={100} dataKey="value">
+                                        {resultData.map((entry, index) => <Cell key={index} fill={entry.color} />)}
                                     </Pie>
                                     <Tooltip />
                                 </RePieChart>
@@ -763,70 +1085,41 @@ const TradingJournal = () => {
                         </div>
                     </div>
 
-                    {/* Estadísticas Detalladas */}
-                    <div className="bg-slate-800 rounded-xl shadow-xl p-6 mb-6 border border-slate-700">
+                    <div className="bg-slate-800 rounded-xl p-6 mb-6 border border-slate-700">
                         <h3 className="text-xl font-bold text-cyan-400 mb-4">📊 Estadísticas Detalladas</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-
-                            <div className="bg-slate-700 p-4 rounded-lg">
-                                <p className="text-slate-400 text-sm">💰 Total Ganancias</p>
-                                <p className="text-2xl font-bold text-green-400">+${selectedMonth.stats.winAmount.toFixed(2)}</p>
-                            </div>
-
-
-
-                            <div className="bg-slate-700 p-4 rounded-lg">
-                                <p className="text-slate-400 text-sm">💵 Profit Neto</p>
-                                <p className={`text-2xl font-bold ${(selectedMonth.stats.winAmount.toFixed(2) - selectedMonth.stats.lossAmount.toFixed(2)) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                    {(selectedMonth.stats.winAmount.toFixed(2) - selectedMonth.stats.lossAmount.toFixed(2)) >= 0 ? '+' : '-'}${(selectedMonth.stats.winAmount.toFixed(2) - selectedMonth.stats.lossAmount.toFixed(2))}
-                                </p>
-                            </div>
-
-
-
-
-                            <div className="bg-slate-700 p-4 rounded-lg">
-                                <p className="text-slate-400 text-sm">💸 Total Pérdidas</p>
-                                <p className="text-2xl font-bold text-red-400">-${selectedMonth.stats.lossAmount.toFixed(2)}</p>
-                            </div>
-                            <div className="bg-slate-700 p-4 rounded-lg">
-                                <p className="text-slate-400 text-sm">📉 Max Drawdown</p>
-                                <p className="text-2xl font-bold text-orange-400">{selectedMonth.stats.maxDrawdown.toFixed(2)}%</p>
-                            </div>
+                            <div className="bg-slate-700 p-4 rounded-lg"><p className="text-slate-400 text-sm">💰 Total Ganancias</p><p className="text-2xl font-bold text-green-400">+${selectedMonth.stats.winAmount.toFixed(2)}</p></div>
+                            <div className="bg-slate-700 p-4 rounded-lg"><p className="text-slate-400 text-sm">💵 Profit Neto</p><p className={`text-2xl font-bold ${selectedMonth.stats.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>{selectedMonth.stats.totalProfit >= 0 ? '+' : '-'}${Math.abs(selectedMonth.stats.totalProfit).toFixed(2)}</p></div>
+                            <div className="bg-slate-700 p-4 rounded-lg"><p className="text-slate-400 text-sm">💸 Total Pérdidas</p><p className="text-2xl font-bold text-red-400">-${selectedMonth.stats.lossAmount.toFixed(2)}</p></div>
+                            <div className="bg-slate-700 p-4 rounded-lg"><p className="text-slate-400 text-sm">📉 Max Drawdown</p><p className="text-2xl font-bold text-orange-400">{selectedMonth.stats.maxDrawdown.toFixed(2)}%</p></div>
                         </div>
                     </div>
 
-                    {/* Tabla de Operaciones */}
-                    <div className="bg-slate-800 rounded-xl shadow-xl overflow-hidden border border-slate-700">
-                        <div className="p-6 bg-slate-750 border-b border-slate-700">
-                            <h2 className="text-xl font-bold text-cyan-400 mb-4">📋 Operaciones del Mes</h2>
+                    <div className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700">
+                        <div className="p-6 border-b border-slate-700">
+                            <h2 className="text-xl font-bold text-cyan-400">📋 Operaciones del Mes</h2>
                         </div>
                         <div className="overflow-x-auto">
                             <table className="w-full">
                                 <thead className="bg-slate-700">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase">Fecha</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase">Par</th>
-
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase">Tipo de operación</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase">Apalancamiento</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase">Resultado</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase">Monto</th>
+                                        {['Fecha', 'Par', 'Tipo', 'Apalancamiento', 'Resultado', 'Monto'].map(h => (
+                                            <th key={h} className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase">{h}</th>
+                                        ))}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-700">
                                     {[...selectedMonth.trades].reverse().map((trade) => (
                                         <tr key={trade.id} className="hover:bg-slate-700 transition-colors">
                                             <td className="px-6 py-4 text-sm text-slate-300">{trade.date}</td>
-                                            <td className="px-6 py-4 text-sm font-semibold text-white">{trade.pair}</td>
+                                            <td className="px-6 py-4 text-sm font-semibold text-white">
+                                                {trade.pair}
+                                                {trade.fromBybit && <span className="ml-2 text-xs text-cyan-400 bg-cyan-900/30 px-1.5 py-0.5 rounded">Bybit</span>}
+                                            </td>
                                             <td className="px-6 py-4 text-sm font-semibold text-white">{trade.action}</td>
-
                                             <td className="px-6 py-4 text-sm text-slate-300">{trade.leverage}x</td>
                                             <td className="px-6 py-4 text-sm">
-                                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${trade.result === 'win'
-                                                    ? 'bg-green-900 text-green-300'
-                                                    : 'bg-red-900 text-red-300'
-                                                    }`}>
+                                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${trade.result === 'win' ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
                                                     {trade.result === 'win' ? '✅ Ganada' : '❌ Perdida'}
                                                 </span>
                                             </td>
@@ -846,13 +1139,17 @@ const TradingJournal = () => {
         );
     }
 
-    // Vista Principal (Mes Actual)
+    // ════════════════════════════════════════════════════════════════════════════
+    // VISTA PRINCIPAL
+    // ════════════════════════════════════════════════════════════════════════════
     return (
         <div className="min-h-screen bg-gray-950 p-4 md:p-8">
+            {showBybitConfig && <BybitConfigModal />}
+
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
                 <div className="bg-gray-900 rounded-2xl shadow-2xl p-6 mb-6 border border-gray-800">
-                    <div className="flex flex-col md:flex-row items-center justify-between">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                         <div>
                             <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
                                 <BarChart3 className="w-10 h-10 text-cyan-400" />
@@ -860,34 +1157,23 @@ const TradingJournal = () => {
                             </h1>
                             <p className="text-gray-400">Mes actual en progreso</p>
                         </div>
-                        <div className="flex flex-col gap-2 mt-4 md:mt-0">
-                            <SyncIndicator />
-                            <div className="flex gap-2">
-                                {view === 'current' && (
-                                    <>
-                                        <button
-                                            onClick={() => setView('history')}
-                                            className="bg-gray-800 text-cyan-400 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-700 transition-all shadow-lg border border-gray-700"
-                                        >
-                                            <Archive className="w-4 h-4" />
-                                            Historial
-                                        </button>
-                                        <button
-                                            onClick={saveCurrentMonth}
-                                            className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700 transition-all shadow-lg"
-                                        >
-                                            <Save className="w-4 h-4" />
-                                            Guardar Mes
-                                        </button>
-                                    </>
-                                )}
-                                <button onClick={exportData} className="bg-gray-800 text-cyan-400 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-700 transition-all shadow-lg border border-gray-700">
-                                    <Download className="w-4 h-4" />
-                                    Exportar
+                        <div className="flex flex-col gap-2">
+                            <div className="flex gap-2 flex-wrap justify-end">
+                                <SyncIndicator />
+                                <BybitIndicator />
+                            </div>
+                            <div className="flex gap-2 flex-wrap justify-end">
+                                <button onClick={() => setView('history')} className="bg-gray-800 text-cyan-400 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-700 transition-all border border-gray-700">
+                                    <Archive className="w-4 h-4" /> Historial
                                 </button>
-                                <label className="bg-gray-800 text-cyan-400 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-700 transition-all shadow-lg border border-gray-700 cursor-pointer">
-                                    <Upload className="w-4 h-4" />
-                                    Importar
+                                <button onClick={saveCurrentMonth} className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700 transition-all">
+                                    <Save className="w-4 h-4" /> Guardar Mes
+                                </button>
+                                <button onClick={exportData} className="bg-gray-800 text-cyan-400 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-700 transition-all border border-gray-700">
+                                    <Download className="w-4 h-4" /> Exportar
+                                </button>
+                                <label className="bg-gray-800 text-cyan-400 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-700 transition-all border border-gray-700 cursor-pointer">
+                                    <Upload className="w-4 h-4" /> Importar
                                     <input type="file" accept=".json" onChange={importData} className="hidden" />
                                 </label>
                             </div>
@@ -895,6 +1181,22 @@ const TradingJournal = () => {
                     </div>
                 </div>
 
+                {/* Banner Bybit si no está conectado */}
+                {!bybitConnected && (
+                    <div
+                        onClick={() => setShowBybitConfig(true)}
+                        className="bg-gradient-to-r from-cyan-900/30 to-blue-900/30 border border-cyan-500/30 rounded-xl p-4 mb-6 flex items-center justify-between cursor-pointer hover:from-cyan-900/50 hover:to-blue-900/50 transition-all"
+                    >
+                        <div className="flex items-center gap-3">
+                            <Zap className="w-6 h-6 text-cyan-400" />
+                            <div>
+                                <p className="text-white font-semibold">Conecta tu cuenta de Bybit</p>
+                                <p className="text-cyan-300 text-sm">Importa tus trades automáticamente cada vez que abras la app</p>
+                            </div>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-cyan-400" />
+                    </div>
+                )}
 
                 {/* Capital Inicial */}
                 <div className="bg-gray-900 rounded-xl shadow-xl p-6 mb-6 border border-gray-800">
@@ -908,138 +1210,113 @@ const TradingJournal = () => {
                     />
                 </div>
 
-                {/* Dashboard Stats */}
+                {/* Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    <div className={`rounded-xl p-6 shadow-lg border ${stats.profitLoss >= 0 ? 'bg-green-900/20 border-green-500/30' : 'bg-red-900/20 border-red-500/30'}`}>
-                        <div className="flex items-center justify-between mb-2">
-                            <DollarSign className="w-10 h-10 text-white" />
-                            <span className="text-gray-400 text-sm font-semibold">Balance Actual</span>
+                    {[
+                        { icon: <DollarSign className="w-10 h-10 text-white" />, label: 'Balance Actual', value: `$${stats.currentBalance.toFixed(2)}`, sub: `${stats.profitLoss >= 0 ? '+' : ''}${stats.profitLoss.toFixed(2)} USDT`, bg: stats.profitLoss >= 0 ? 'bg-green-900/20 border-green-500/30' : 'bg-red-900/20 border-red-500/30', subColor: stats.profitLoss >= 0 ? 'text-green-400' : 'text-red-400' },
+                        { icon: <TrendingUp className="w-10 h-10 text-white" />, label: 'ROI', value: `${stats.roi.toFixed(2)}%`, sub: 'Retorno de inversión', bg: 'bg-blue-900/20 border-blue-500/30', subColor: 'text-blue-400' },
+                        { icon: <PieChart className="w-10 h-10 text-white" />, label: 'Win Rate', value: `${stats.winRate.toFixed(1)}%`, sub: `${stats.totalWins}W / ${stats.totalLosses}L`, bg: 'bg-purple-900/20 border-purple-500/30', subColor: 'text-purple-400' },
+                        { icon: <BarChart3 className="w-10 h-10 text-white" />, label: 'Total Trades', value: stats.totalTrades, sub: 'Operaciones registradas', bg: 'bg-amber-900/20 border-amber-500/30', subColor: 'text-amber-400' },
+                    ].map(({ icon, label, value, sub, bg, subColor }) => (
+                        <div key={label} className={`rounded-xl p-6 shadow-lg border ${bg}`}>
+                            <div className="flex items-center justify-between mb-2">{icon}<span className="text-gray-400 text-sm font-semibold">{label}</span></div>
+                            <p className="text-3xl font-bold text-white">{value}</p>
+                            <p className={`text-sm mt-1 ${subColor}`}>{sub}</p>
                         </div>
-                        <p className="text-3xl font-bold text-white">${stats.currentBalance.toFixed(2)}</p>
-                        <p className={`text-sm mt-1 ${stats.profitLoss >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                            {stats.profitLoss >= 0 ? '+' : ''}{stats.profitLoss.toFixed(2)} USDT
-                        </p>
-                    </div>
-
-                    <div className="bg-blue-900/20 border border-blue-500/30 rounded-xl p-6 shadow-lg">
-                        <div className="flex items-center justify-between mb-2">
-                            <TrendingUp className="w-10 h-10 text-white" />
-                            <span className="text-gray-400 text-sm font-semibold">ROI</span>
-                        </div>
-                        <p className="text-3xl font-bold text-white">{stats.roi.toFixed(2)}%</p>
-                        <p className="text-blue-400 text-sm mt-1">Retorno de inversión</p>
-                    </div>
-
-                    <div className="bg-purple-900/20 border border-purple-500/30 rounded-xl p-6 shadow-lg">
-                        <div className="flex items-center justify-between mb-2">
-                            <PieChart className="w-10 h-10 text-white" />
-                            <span className="text-gray-400 text-sm font-semibold">Win Rate</span>
-                        </div>
-                        <p className="text-3xl font-bold text-white">{stats.winRate.toFixed(1)}%</p>
-                        <p className="text-purple-400 text-sm mt-1">{stats.totalWins}W / {stats.totalLosses}L</p>
-                    </div>
-
-                    <div className="bg-amber-900/20 border border-amber-500/30 rounded-xl p-6 shadow-lg">
-                        <div className="flex items-center justify-between mb-2">
-                            <BarChart3 className="w-10 h-10 text-white" />
-                            <span className="text-gray-400 text-sm font-semibold">Total Trades</span>
-                        </div>
-                        <p className="text-3xl font-bold text-white">{stats.totalTrades}</p>
-                        <p className="text-amber-400 text-sm mt-1">Operaciones registradas</p>
-                    </div>
+                    ))}
                 </div>
 
-
-                {/* Formulario Nueva Operación */}
-                <div className="bg-gray-900 rounded-xl shadow-xl p-6 mb-6 border border-gray-800">
-                    <h2 className="text-2xl font-bold text-cyan-400 mb-4 flex items-center gap-2">
-                        <Plus className="w-6 h-6" />
-                        Nueva Operación
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                        <div>
-                            <label className="text-gray-400 text-sm mb-2 block">📊 Par</label>
-                            <input
-                                type="text"
-                                placeholder="BTC/USDT"
-                                value={newTrade.pair}
-                                onChange={(e) => setNewTrade({ ...newTrade, pair: e.target.value.toUpperCase() })}
-                                className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-cyan-500 focus:outline-none"
-                            />
+                {/* Formulario Nueva Operación — solo si NO está conectado a Bybit */}
+                {!bybitConnected && (
+                    <div className="bg-gray-900 rounded-xl shadow-xl p-6 mb-6 border border-gray-800">
+                        <h2 className="text-2xl font-bold text-cyan-400 mb-4 flex items-center gap-2">
+                            <Plus className="w-6 h-6" /> Nueva Operación Manual
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                            {[
+                                { label: '📊 Par', type: 'text', placeholder: 'BTC/USDT', value: newTrade.pair, onChange: (v) => setNewTrade({ ...newTrade, pair: v.toUpperCase() }) },
+                            ].map(({ label, type, placeholder, value, onChange }) => (
+                                <div key={label}>
+                                    <label className="text-gray-400 text-sm mb-2 block">{label}</label>
+                                    <input type={type} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)}
+                                        className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-cyan-500 focus:outline-none" />
+                                </div>
+                            ))}
+                            <div>
+                                <label className="text-gray-400 text-sm mb-2 block">Tipo ⬆️⬇️</label>
+                                <select value={newTrade.action} onChange={(e) => setNewTrade({ ...newTrade, action: e.target.value })}
+                                    className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-cyan-500 focus:outline-none">
+                                    <option value="Long 🟢">🟢 Long</option>
+                                    <option value="Short 🔴">🔴 Short</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-gray-400 text-sm mb-2 block">⚡ Apalancamiento</label>
+                                <input type="number" value={newTrade.leverage} onChange={(e) => setNewTrade({ ...newTrade, leverage: parseInt(e.target.value) || 1 })} min="1" max="125"
+                                    className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-cyan-500 focus:outline-none" />
+                            </div>
+                            <div>
+                                <label className="text-gray-400 text-sm mb-2 block">📈 Resultado</label>
+                                <select value={newTrade.result} onChange={(e) => setNewTrade({ ...newTrade, result: e.target.value })}
+                                    className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-cyan-500 focus:outline-none">
+                                    <option value="win">✅ Ganada</option>
+                                    <option value="loss">❌ Perdida</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-gray-400 text-sm mb-2 block">💵 Monto (USDT)</label>
+                                <input type="number" value={newTrade.amount} onChange={(e) => setNewTrade({ ...newTrade, amount: parseFloat(e.target.value) || 0 })} step="0.01"
+                                    className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-cyan-500 focus:outline-none" />
+                            </div>
+                            <div>
+                                <label className="text-gray-400 text-sm mb-2 block">📅 Fecha</label>
+                                <input type="date" value={newTrade.date} onChange={(e) => setNewTrade({ ...newTrade, date: e.target.value })}
+                                    className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-cyan-500 focus:outline-none" />
+                            </div>
                         </div>
+                        <button onClick={addTrade} className="mt-4 w-full bg-cyan-600 text-white px-6 py-3 rounded-lg hover:bg-cyan-700 transition-all font-bold flex items-center justify-center gap-2">
+                            <Plus className="w-5 h-5" /> Agregar Operación
+                        </button>
+                    </div>
+                )}
 
-                        <div>
-                            <label className="text-gray-400 text-sm mb-2 block"> Tipo de operación ⬆️⬇️</label>
-                            <select
-                                value={newTrade.action}
-                                onChange={(e) => setNewTrade({ ...newTrade, action: e.target.value })}
-                                className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-cyan-500 focus:outline-none"
-                            >
-                                <option value="Long 🟢">🟢 Long</option>
-                                <option value="Short 🔴">🔴 Short</option>
-                            </select>
+                {/* Si está conectado a Bybit, mostrar info de sincronización */}
+                {bybitConnected && (
+                    <div className="bg-gray-900 rounded-xl p-4 mb-6 border border-cyan-500/20 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <Zap className="w-5 h-5 text-cyan-400" />
+                            <div>
+                                <p className="text-white text-sm font-semibold">Bybit conectado — Importación automática activa</p>
+                                <p className="text-gray-400 text-xs">
+                                    {bybitLastSync ? `Última sync: ${bybitLastSync.toLocaleString()}` : 'Sincronizando...'}
+                                </p>
+                            </div>
                         </div>
-
-
-
-
-
-                        <div>
-                            <label className="text-gray-400 text-sm mb-2 block">⚡ Apalancamiento</label>
-                            <input
-                                type="number"
-                                value={newTrade.leverage}
-                                onChange={(e) => setNewTrade({ ...newTrade, leverage: parseInt(e.target.value) || 1 })}
-                                className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-cyan-500 focus:outline-none"
-                                min="1"
-                                max="125"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-gray-400 text-sm mb-2 block">📈 Resultado</label>
-                            <select
-                                value={newTrade.result}
-                                onChange={(e) => setNewTrade({ ...newTrade, result: e.target.value })}
-                                className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-cyan-500 focus:outline-none"
-                            >
-                                <option value="win">✅ Ganada</option>
-                                <option value="loss">❌ Perdida</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="text-gray-400 text-sm mb-2 block">💵 Monto (USDT)</label>
-                            <input
-                                type="number"
-                                value={newTrade.amount}
-                                onChange={(e) => setNewTrade({ ...newTrade, amount: parseFloat(e.target.value) || 0 })}
-                                className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-cyan-500 focus:outline-none"
-                                step="0.01"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-gray-400 text-sm mb-2 block">📅 Fecha</label>
-                            <input
-                                type="date"
-                                value={newTrade.date}
-                                onChange={(e) => setNewTrade({ ...newTrade, date: e.target.value })}
-                                className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-cyan-500 focus:outline-none"
-                            />
+                        <div className="flex gap-2">
+                            <button onClick={() => syncWithBybit()} disabled={isBybitSyncing}
+                                className="bg-cyan-600 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-1 hover:bg-cyan-700 transition-all disabled:opacity-50">
+                                <RefreshCw className={`w-3.5 h-3.5 ${isBybitSyncing ? 'animate-spin' : ''}`} />
+                                {isBybitSyncing ? 'Sincronizando...' : 'Sincronizar'}
+                            </button>
+                            <button onClick={() => setShowBybitConfig(true)} className="bg-gray-800 text-gray-400 px-3 py-1.5 rounded-lg text-sm flex items-center gap-1 hover:bg-gray-700 transition-all border border-gray-700">
+                                <Settings className="w-3.5 h-3.5" /> Config
+                            </button>
                         </div>
                     </div>
-                    <button
-                        onClick={addTrade}
-                        className="mt-4 w-full bg-cyan-600 text-white px-6 py-3 rounded-lg hover:bg-cyan-700 transition-all shadow-lg font-bold flex items-center justify-center gap-2"
-                    >
-                        <Plus className="w-5 h-5" />
-                        Agregar Operación
-                    </button>
-                </div>
+                )}
 
+                {/* Calendario */}
+                {/* Calendario */}
+                <div className="mb-6">
+                    <TradeCalendar
+                        trades={allTrades.length > 0 ? allTrades : trades}
+                        currentMonth={currentMonth}
+                    />
+                </div>
 
                 {/* Gráficas */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-
-                    <div className="bg-gray-900 rounded-xl shadow-xl p-6 border border-gray-800">
+                    <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
                         <h3 className="text-xl font-bold text-cyan-400 mb-4">📈 Evolución del Balance</h3>
                         <ResponsiveContainer width="100%" height={300}>
                             <LineChart data={stats.balanceHistory}>
@@ -1051,27 +1328,12 @@ const TradingJournal = () => {
                             </LineChart>
                         </ResponsiveContainer>
                     </div>
-
-
-
-
-                    <div className="bg-gray-900 rounded-xl shadow-xl p-6 border border-gray-800">
+                    <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
                         <h3 className="text-xl font-bold text-cyan-400 mb-4">🎯 Distribución de Resultados</h3>
                         <ResponsiveContainer width="100%" height={300}>
                             <RePieChart>
-                                <Pie
-                                    data={resultData}
-                                    cx="50%"
-                                    cy="50%"
-                                    labelLine={false}
-                                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                    outerRadius={100}
-                                    fill="#8884d8"
-                                    dataKey="value"
-                                >
-                                    {resultData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
+                                <Pie data={resultData} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`} outerRadius={100} dataKey="value">
+                                    {resultData.map((entry, index) => <Cell key={index} fill={entry.color} />)}
                                 </Pie>
                                 <Tooltip />
                             </RePieChart>
@@ -1079,71 +1341,55 @@ const TradingJournal = () => {
                     </div>
                 </div>
 
-                {/* Estadisticas detalladas */}
-                <div className="bg-gray-900 rounded-xl shadow-xl p-6 mb-6 border border-gray-800">
+                {/* Estadísticas detalladas */}
+                <div className="bg-gray-900 rounded-xl p-6 mb-6 border border-gray-800">
                     <h3 className="text-xl font-bold text-cyan-400 mb-4">📊 Estadísticas Detalladas</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-                            <p className="text-gray-400 text-sm">💰 Total Ganancias</p>
-                            <p className="text-2xl font-bold text-green-400">+${stats.winAmount.toFixed(2)}</p>
-                        </div>
-                        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-                            <p className="text-gray-400 text-sm">💵 Balance Neto</p>
-                            <p className={`text-2xl font-bold ${stats.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                {stats.totalProfit >= 0 ? '+' : '-'}${stats.totalProfit.toFixed(2)}
-                            </p>
-                        </div>
-                        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-                            <p className="text-gray-400 text-sm">💸 Total Pérdidas</p>
-                            <p className="text-2xl font-bold text-red-400">-${stats.lossAmount.toFixed(2)}</p>
-                        </div>
-                        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-                            <p className="text-gray-400 text-sm">📉 Max Drawdown</p>
-                            <p className="text-2xl font-bold text-orange-400">{stats.maxDrawdown.toFixed(2)}%</p>
-                        </div>
+                        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700"><p className="text-gray-400 text-sm">💰 Total Ganancias</p><p className="text-2xl font-bold text-green-400">+${stats.winAmount.toFixed(2)}</p></div>
+                        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700"><p className="text-gray-400 text-sm">💵 Balance Neto</p><p className={`text-2xl font-bold ${stats.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>{stats.totalProfit >= 0 ? '+' : '-'}${Math.abs(stats.totalProfit).toFixed(2)}</p></div>
+                        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700"><p className="text-gray-400 text-sm">💸 Total Pérdidas</p><p className="text-2xl font-bold text-red-400">-${stats.lossAmount.toFixed(2)}</p></div>
+                        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700"><p className="text-gray-400 text-sm">📉 Max Drawdown</p><p className="text-2xl font-bold text-orange-400">{stats.maxDrawdown.toFixed(2)}%</p></div>
                     </div>
                 </div>
 
-
-                <div className="bg-gray-900 rounded-xl shadow-xl overflow-hidden border border-gray-800">
-                    <div className="p-6 bg-gray-800 border-b border-gray-700">
+                {/* Tabla trades */}
+                <div className="bg-gray-900 rounded-xl overflow-hidden border border-gray-800">
+                    <div className="p-6 bg-gray-800 border-b border-gray-700 flex items-center justify-between">
                         <h2 className="text-2xl font-bold text-cyan-400">📋 Historial de Operaciones</h2>
+                        {bybitConnected && (
+                            <span className="text-xs text-cyan-400 bg-cyan-900/30 px-2 py-1 rounded-full border border-cyan-500/30">
+                                🔄 Importado desde Bybit
+                            </span>
+                        )}
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead className="bg-gray-800">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Fecha</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Par</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Tipo de operación</th>
-
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Apalancamiento</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Resultado</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Monto</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Acción</th>
+                                    {['Fecha', 'Par', 'Tipo', 'Apalancamiento', 'Resultado', 'Monto'].map(h => (
+                                        <th key={h} className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">{h}</th>
+                                    ))}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-800">
                                 {trades.length === 0 ? (
                                     <tr>
-                                        <td colSpan="6" className="px-6 py-8 text-center text-gray-400">
-                                            No hay operaciones registradas. ¡Agrega tu primera operación!
+                                        <td colSpan="7" className="px-6 py-8 text-center text-gray-400">
+                                            {bybitConnected ? '🔄 Sincronizando trades desde Bybit...' : 'No hay operaciones. ¡Agrega tu primera operación!'}
                                         </td>
                                     </tr>
                                 ) : (
                                     [...trades].reverse().map((trade) => (
                                         <tr key={trade.id} className="hover:bg-gray-800 transition-colors">
                                             <td className="px-3 py-4 text-sm text-gray-300">{trade.date}</td>
-                                            <td className="px-3 py-4 text-sm font-semibold text-white">{trade.pair}</td>
-
+                                            <td className="px-3 py-4 text-sm font-semibold text-white">
+                                                {trade.pair}
+                                                {trade.fromBybit && <span className="ml-1 text-xs text-cyan-400 bg-cyan-900/30 px-1 py-0.5 rounded">Bybit</span>}
+                                            </td>
                                             <td className="px-3 py-4 text-sm font-semibold text-white">{trade.action}</td>
-
                                             <td className="px-3 py-4 text-sm text-gray-300">{trade.leverage}x</td>
                                             <td className="px-3 py-4 text-sm">
-                                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${trade.result === 'win'
-                                                    ? 'bg-green-900/50 text-green-300 border border-green-500/30'
-                                                    : 'bg-red-900/50 text-red-300 border border-red-500/30'
-                                                    }`}>
+                                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${trade.result === 'win' ? 'bg-green-900/50 text-green-300 border border-green-500/30' : 'bg-red-900/50 text-red-300 border border-red-500/30'}`}>
                                                     {trade.result === 'win' ? '✅ Ganada' : '❌ Perdida'}
                                                 </span>
                                             </td>
@@ -1152,14 +1398,7 @@ const TradingJournal = () => {
                                                     {trade.result === 'win' ? '+' : '-'}${parseFloat(trade.amount).toFixed(2)}
                                                 </span>
                                             </td>
-                                            <td className="px-3 py-4 text-sm">
-                                                <button
-                                                    onClick={() => deleteTrade(trade.id)}
-                                                    className="text-red-400 hover:text-red-300 transition-colors"
-                                                >
-                                                    <Trash2 className="w-5 h-5" />
-                                                </button>
-                                            </td>
+
                                         </tr>
                                     ))
                                 )}
@@ -1168,9 +1407,7 @@ const TradingJournal = () => {
                     </div>
                 </div>
             </div>
-
         </div>
-
     );
 };
 
