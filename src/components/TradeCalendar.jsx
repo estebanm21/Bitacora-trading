@@ -1,16 +1,12 @@
 import React, { useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-const TradeCalendar = ({ trades = [], currentMonth, onMonthChange }) => {
+const TradeCalendar = ({ trades = [], currentMonth }) => {
     const [viewMonth, setViewMonth] = React.useState(() => {
         if (currentMonth) return currentMonth;
         const now = new Date();
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     });
-
-
-
-
 
     const [year, month] = viewMonth.split('-').map(Number);
 
@@ -78,27 +74,13 @@ const TradeCalendar = ({ trades = [], currentMonth, onMonthChange }) => {
         'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
     const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
-    // const prevMonth = () => {
-    //     const d = new Date(year, month - 2, 1);
-    //     setViewMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-    // };
-    // const nextMonth = () => {
-    //     const d = new Date(year, month, 1);
-    //     setViewMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-    // };
-
     const prevMonth = () => {
         const d = new Date(year, month - 2, 1);
-        const newMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        setViewMonth(newMonth);
-        onMonthChange?.(newMonth); // ← agregar esto
+        setViewMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
     };
-
     const nextMonth = () => {
         const d = new Date(year, month, 1);
-        const newMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        setViewMonth(newMonth);
-        onMonthChange?.(newMonth); // ← agregar esto
+        setViewMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
     };
     const goToday = () => {
         const now = new Date();
