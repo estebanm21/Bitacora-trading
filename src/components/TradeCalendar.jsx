@@ -1,12 +1,16 @@
 import React, { useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-const TradeCalendar = ({ trades = [], currentMonth }) => {
+const TradeCalendar = ({ trades = [], currentMonth, onMonthChange }) => {
     const [viewMonth, setViewMonth] = React.useState(() => {
         if (currentMonth) return currentMonth;
         const now = new Date();
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     });
+
+
+
+
 
     const [year, month] = viewMonth.split('-').map(Number);
 
@@ -74,13 +78,27 @@ const TradeCalendar = ({ trades = [], currentMonth }) => {
         'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
     const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
+    // const prevMonth = () => {
+    //     const d = new Date(year, month - 2, 1);
+    //     setViewMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    // };
+    // const nextMonth = () => {
+    //     const d = new Date(year, month, 1);
+    //     setViewMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    // };
+
     const prevMonth = () => {
         const d = new Date(year, month - 2, 1);
-        setViewMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+        const newMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        setViewMonth(newMonth);
+        onMonthChange?.(newMonth); // ← agregar esto
     };
+
     const nextMonth = () => {
         const d = new Date(year, month, 1);
-        setViewMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+        const newMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        setViewMonth(newMonth);
+        onMonthChange?.(newMonth); // ← agregar esto
     };
     const goToday = () => {
         const now = new Date();
@@ -192,8 +210,8 @@ const TradeCalendar = ({ trades = [], currentMonth }) => {
                                         >
                                             {/* Número del día */}
                                             <span className={`text-xs font-semibold leading-none mb-1 ${isToday ? 'text-cyan-400' :
-                                                    hasTrades ? (isPositive ? 'text-emerald-300' : 'text-red-300') :
-                                                        'text-gray-500'
+                                                hasTrades ? (isPositive ? 'text-emerald-300' : 'text-red-300') :
+                                                    'text-gray-500'
                                                 }`}>
                                                 {day}
                                             </span>

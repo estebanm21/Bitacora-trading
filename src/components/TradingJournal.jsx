@@ -30,6 +30,10 @@ const TradingJournal = () => {
     const [monthlyHistory, setMonthlyHistory] = useState([]);
     const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7));
 
+    const [calendarMonth, setCalendarMonth] = useState(currentMonth);
+    const [calendarTrades, setCalendarTrades] = useState([]);
+    const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
+
     const [newTrade, setNewTrade] = useState({
         pair: '',
         action: 'Long 🟢',
@@ -187,6 +191,78 @@ const TradingJournal = () => {
             });
         }
     };
+
+    const fetchTradesForMonth = async (month) => {
+        if (!bybitConnected) return;
+        const journal = await supabase
+            .from('trading_journal')
+            .select('bybit_api_key, bybit_api_secret')
+            .eq('auth_user_id', user?.id)
+            .single();
+
+        if (!journal.data?.bybit_api_key) return;
+
+        const key = journal.data.bybit_api_key;
+        const secret = journal.data.bybit_api_secret;
+        const recvWindow = '5000';
+
+        const [y, m] = month.split('-').map(Number);
+        const startTime = new Date(y, m - 1, 1).getTime();
+        const endTime = new Date(y, m, 0, 23, 59, 59).getTime();
+
+        setIsLoadingCalendar(true);
+        try {
+            const ts = Date.now().toString();
+            const params = `category=linear&settleCoin=USDT&limit=50&startTime=${startTime}&endTime=${endTime}`;
+            const signString = `${ts}${key}${recvWindow}${params}`;
+            const enc = new TextEncoder();
+            const ck = await window.crypto.subtle.importKey(
+                'raw', enc.encode(secret),
+                { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+            );
+            const sb = await window.crypto.subtle.sign('HMAC', ck, enc.encode(signString));
+            const sig = Array.from(new Uint8Array(sb))
+                .map(b => b.toString(16).padStart(2, '0')).join('');
+
+            const res = await fetch(
+                `https://api.bybit.com/v5/position/closed-pnl?${params}`,
+                {
+                    headers: {
+                        'X-BAPI-API-KEY': key,
+                        'X-BAPI-TIMESTAMP': ts,
+                        'X-BAPI-RECV-WINDOW': recvWindow,
+                        'X-BAPI-SIGN': sig,
+                    }
+                }
+            );
+            const data = await res.json();
+            const mapped = (data.result?.list || [])
+                .map(t => ({
+                    id: t.orderId,
+                    pair: t.symbol,
+                    action: t.side === 'Sell' ? 'Short 🔴' : 'Long 🟢',
+                    leverage: parseInt(t.leverage) || 1,
+                    result: parseFloat(t.closedPnl) >= 0 ? 'win' : 'loss',
+                    amount: Math.abs(parseFloat(t.closedPnl || '0')),
+                    date: new Date(parseInt(t.createdTime)).toISOString().split('T')[0],
+                    fromBybit: true,
+                    pnl: parseFloat(t.closedPnl || '0'),
+                }))
+                .filter(t => t.amount > 0);
+
+            setCalendarTrades(mapped);
+        } catch (e) {
+            console.error('Error cargando calendario:', e);
+        } finally {
+            setIsLoadingCalendar(false);
+        }
+    };
+
+    useEffect(() => {
+        if (bybitConnected && user) {
+            fetchTradesForMonth(currentMonth);
+        }
+    }, [bybitConnected, user]);
 
     const syncWithBybit = async (overrideUserId = null) => {
         const userId = overrideUserId || user?.id;
@@ -360,7 +436,7 @@ const TradingJournal = () => {
         }
     };
 
-    // const syncWithBybit = async (overrideUserId = null) => {
+
     //     const userId = overrideUserId || user?.id;
     //     if (!userId) return;
     //     if (isBybitSyncing) return;
@@ -1479,12 +1555,9 @@ const TradingJournal = () => {
 
                 {/* Calendario */}
                 {/* Calendario */}
-                <div className="mb-6">
-                    <TradeCalendar
-                        trades={allTrades.length > 0 ? allTrades : trades}
-                        currentMonth={currentMonth}
-                    />
-                </div>
+
+
+
 
                 {/* Gráficas */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
