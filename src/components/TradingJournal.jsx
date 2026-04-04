@@ -210,18 +210,29 @@ const TradingJournal = () => {
             const secret = journal.bybit_api_secret;
             const recvWindow = '5000';
 
-            // ── Función para hacer llamadas firmadas a Bybit ──────────────────
+            // ── Firma Bybit ─────────────────────────────────────────────
             const bybitFetch = async (params) => {
                 const ts = Date.now().toString();
                 const signString = `${ts}${key}${recvWindow}${params}`;
+
                 const enc = new TextEncoder();
-                const ck = await window.crypto.subtle.importKey(
-                    'raw', enc.encode(secret),
-                    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+                const cryptoKey = await window.crypto.subtle.importKey(
+                    'raw',
+                    enc.encode(secret),
+                    { name: 'HMAC', hash: 'SHA-256' },
+                    false,
+                    ['sign']
                 );
-                const sb = await window.crypto.subtle.sign('HMAC', ck, enc.encode(signString));
-                const sig = Array.from(new Uint8Array(sb))
-                    .map(b => b.toString(16).padStart(2, '0')).join('');
+
+                const signatureBuffer = await window.crypto.subtle.sign(
+                    'HMAC',
+                    cryptoKey,
+                    enc.encode(signString)
+                );
+
+                const signature = Array.from(new Uint8Array(signatureBuffer))
+                    .map(b => b.toString(16).padStart(2, '0'))
+                    .join('');
 
                 const res = await fetch(
                     `https://api.bybit.com/v5/position/closed-pnl?${params}`,
@@ -230,39 +241,65 @@ const TradingJournal = () => {
                             'X-BAPI-API-KEY': key,
                             'X-BAPI-TIMESTAMP': ts,
                             'X-BAPI-RECV-WINDOW': recvWindow,
-                            'X-BAPI-SIGN': sig,
+                            'X-BAPI-SIGN': signature,
                         }
                     }
                 );
+
                 return res.json();
             };
 
-            // ── Paginación — traer todos los trades ───────────────────────────
+            // ── 🔥 TRAER TODO EL HISTORIAL POR BLOQUES ───────────────────
+
+            const now = Date.now();
+            const daysBack = 180; // puedes subirlo (ej: 365)
+            const chunkDays = 7;
+
+            const chunkMs = chunkDays * 24 * 60 * 60 * 1000;
+
+            let start = now - (daysBack * 24 * 60 * 60 * 1000);
+            const end = now;
+
             let allResults = [];
-            let cursor = null;
-            let page = 0;
 
-            while (page < 10) {
-                const params = `category=linear&limit=50&settleCoin=USDT${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
-                const data = await bybitFetch(params);
+            while (start < end) {
+                const chunkEnd = Math.min(start + chunkMs, end);
 
-                if (data.retCode !== 0) throw new Error(`Bybit error: ${data.retMsg}`);
+                let cursor = null;
+                let page = 0;
 
-                const list = data.result?.list || [];
-                allResults = [...allResults, ...list];
-                cursor = data.result?.nextPageCursor;
-                page++;
+                do {
+                    const params = `category=linear&settleCoin=USDT&limit=50&startTime=${start}&endTime=${chunkEnd}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
 
-                if (!cursor || list.length < 50) break;
+                    const data = await bybitFetch(params);
+
+                    if (data.retCode !== 0) {
+                        throw new Error(`Bybit error: ${data.retMsg}`);
+                    }
+
+                    const list = data.result?.list || [];
+                    allResults.push(...list);
+
+                    cursor = data.result?.nextPageCursor;
+                    page++;
+
+                } while (cursor && page < 10);
+
+                start = chunkEnd;
             }
 
-            console.log('Total trades traídos:', allResults.length);
-            console.log('Fechas:', allResults.map(t => new Date(parseInt(t.createdTime)).toISOString().split('T')[0]));
-            const now = new Date();
-            const mesActual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            // ── ❗ eliminar duplicados (MUY IMPORTANTE) ─────────────────
+            const uniqueMap = new Map();
+            allResults.forEach(t => {
+                uniqueMap.set(t.orderId, t);
+            });
 
-            // ── Mapear todos los trades ───────────────────────────────────────
-            const allMapped = allResults
+            const uniqueResults = Array.from(uniqueMap.values());
+
+            console.log('TOTAL REAL:', uniqueResults.length);
+
+            // ── Mapear ────────────────────────────────────────────────
+            const allMapped = uniqueResults
                 .map(t => ({
                     id: t.orderId,
                     pair: t.symbol,
@@ -276,65 +313,29 @@ const TradingJournal = () => {
                     entryPrice: parseFloat(t.avgEntryPrice || '0'),
                     exitPrice: parseFloat(t.avgExitPrice || '0'),
                 }))
-                .filter(t => t.amount > 0);
+                .filter(t => t.amount > 0); // puedes quitar esto si quieres TODOS
 
-            // Guardar TODOS para el calendario
             setAllTrades(allMapped);
 
-            // Solo mes actual para estadísticas
+            // ── Mes actual ────────────────────────────────────────────
+            const nowDate = new Date();
+            const mesActual = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, '0')}`;
+
             const tradesDelMes = allMapped.filter(t => t.date.startsWith(mesActual));
 
-            // ── Cierre automático si cambió el mes ────────────────────────────
-            const storedMonth = currentMonth || mesActual;
-            if (storedMonth !== mesActual && trades.length > 0) {
-                const monthName = new Date(storedMonth + '-01').toLocaleDateString('es-ES', {
-                    year: 'numeric', month: 'long'
-                });
-
-                const statsDelMesAnterior = calculateStats(trades, initialCapital);
-                const monthData = {
-                    id: Date.now(),
-                    month: storedMonth,
-                    monthName,
-                    initialCapital,
-                    trades: [...trades],
-                    stats: statsDelMesAnterior,
-                    savedDate: new Date().toISOString()
-                };
-
-                setMonthlyHistory(prev => [monthData, ...prev]);
-                setCurrentMonth(mesActual);
-                setInitialCapital(0);
-                setTrades(tradesDelMes);
-
-                Swal.fire({
-                    position: 'top-end', icon: 'success',
-                    text: `📅 Mes ${monthName} cerrado automáticamente. Actualiza tu capital inicial.`,
-                    showConfirmButton: false, timer: 3000,
-                    background: '#030712', color: 'gray'
-                });
-            } else {
-                setCurrentMonth(mesActual);
-                setTrades(tradesDelMes);
-            }
-
+            setTrades(tradesDelMes);
+            setCurrentMonth(mesActual);
             setBybitLastSync(new Date());
 
-            if (tradesDelMes.length > 0) {
-                Swal.fire({
-                    position: 'top-end', icon: 'success',
-                    text: `🔄 ${tradesDelMes.length} trades de ${mesActual} importados`,
-                    showConfirmButton: false, timer: 2000,
-                    background: '#030712', color: 'gray'
-                });
-            } else {
-                Swal.fire({
-                    position: 'top-end', icon: 'info',
-                    text: `No hay trades cerrados en ${mesActual}`,
-                    showConfirmButton: false, timer: 1500,
-                    background: '#030712', color: 'gray'
-                });
-            }
+            Swal.fire({
+                position: 'top-end',
+                icon: 'success',
+                text: `🔄 ${allMapped.length} trades sincronizados`,
+                showConfirmButton: false,
+                timer: 2000,
+                background: '#030712',
+                color: 'gray'
+            });
 
             await supabase
                 .from('trading_journal')
@@ -342,18 +343,189 @@ const TradingJournal = () => {
                 .eq('auth_user_id', userId);
 
         } catch (error) {
-            console.error('Error al sincronizar con Bybit:', error);
+            console.error('Error:', error);
+
             Swal.fire({
-                position: 'top-end', icon: 'error',
-                text: `Error: ${error.message}`,
-                showConfirmButton: false, timer: 2000,
-                background: '#030712', color: 'gray'
+                position: 'top-end',
+                icon: 'error',
+                text: error.message,
+                showConfirmButton: false,
+                timer: 2000,
+                background: '#030712',
+                color: 'gray'
             });
+
         } finally {
             setIsBybitSyncing(false);
         }
     };
+
     // const syncWithBybit = async (overrideUserId = null) => {
+    //     const userId = overrideUserId || user?.id;
+    //     if (!userId) return;
+    //     if (isBybitSyncing) return;
+
+    //     try {
+    //         setIsBybitSyncing(true);
+
+    //         const { data: journal } = await supabase
+    //             .from('trading_journal')
+    //             .select('bybit_api_key, bybit_api_secret')
+    //             .eq('auth_user_id', userId)
+    //             .single();
+
+    //         if (!journal?.bybit_api_key) {
+    //             throw new Error('No hay credenciales de Bybit guardadas');
+    //         }
+
+    //         const key = journal.bybit_api_key;
+    //         const secret = journal.bybit_api_secret;
+    //         const recvWindow = '5000';
+
+    //         // ── Función para hacer llamadas firmadas a Bybit ──────────────────
+    //         const bybitFetch = async (params) => {
+    //             const ts = Date.now().toString();
+    //             const signString = `${ts}${key}${recvWindow}${params}`;
+    //             const enc = new TextEncoder();
+    //             const ck = await window.crypto.subtle.importKey(
+    //                 'raw', enc.encode(secret),
+    //                 { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+    //             );
+    //             const sb = await window.crypto.subtle.sign('HMAC', ck, enc.encode(signString));
+    //             const sig = Array.from(new Uint8Array(sb))
+    //                 .map(b => b.toString(16).padStart(2, '0')).join('');
+
+    //             const res = await fetch(
+    //                 `https://api.bybit.com/v5/position/closed-pnl?${params}`,
+    //                 {
+    //                     headers: {
+    //                         'X-BAPI-API-KEY': key,
+    //                         'X-BAPI-TIMESTAMP': ts,
+    //                         'X-BAPI-RECV-WINDOW': recvWindow,
+    //                         'X-BAPI-SIGN': sig,
+    //                     }
+    //                 }
+    //             );
+    //             return res.json();
+    //         };
+
+    //         // ── Paginación — traer todos los trades ───────────────────────────
+    //         let allResults = [];
+    //         let cursor = null;
+    //         let page = 0;
+
+    //         while (page < 10) {
+    //             const params = `category=linear&limit=50&settleCoin=USDT${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+    //             const data = await bybitFetch(params);
+
+    //             if (data.retCode !== 0) throw new Error(`Bybit error: ${data.retMsg}`);
+
+    //             const list = data.result?.list || [];
+    //             allResults = [...allResults, ...list];
+    //             cursor = data.result?.nextPageCursor;
+    //             page++;
+
+    //             if (!cursor || list.length < 50) break;
+    //         }
+
+    //         console.log('Total trades traídos:', allResults.length);
+    //         console.log('Fechas:', allResults.map(t => new Date(parseInt(t.createdTime)).toISOString().split('T')[0]));
+    //         const now = new Date();
+    //         const mesActual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    //         // ── Mapear todos los trades ───────────────────────────────────────
+    //         const allMapped = allResults
+    //             .map(t => ({
+    //                 id: t.orderId,
+    //                 pair: t.symbol,
+    //                 action: t.side === 'Sell' ? 'Short 🔴' : 'Long 🟢',
+    //                 leverage: parseInt(t.leverage) || 1,
+    //                 result: parseFloat(t.closedPnl) >= 0 ? 'win' : 'loss',
+    //                 amount: Math.abs(parseFloat(t.closedPnl || '0')),
+    //                 date: new Date(parseInt(t.createdTime)).toISOString().split('T')[0],
+    //                 fromBybit: true,
+    //                 pnl: parseFloat(t.closedPnl || '0'),
+    //                 entryPrice: parseFloat(t.avgEntryPrice || '0'),
+    //                 exitPrice: parseFloat(t.avgExitPrice || '0'),
+    //             }))
+    //             .filter(t => t.amount > 0);
+
+    //         // Guardar TODOS para el calendario
+    //         setAllTrades(allMapped);
+
+    //         // Solo mes actual para estadísticas
+    //         const tradesDelMes = allMapped.filter(t => t.date.startsWith(mesActual));
+
+    //         // ── Cierre automático si cambió el mes ────────────────────────────
+    //         const storedMonth = currentMonth || mesActual;
+    //         if (storedMonth !== mesActual && trades.length > 0) {
+    //             const monthName = new Date(storedMonth + '-01').toLocaleDateString('es-ES', {
+    //                 year: 'numeric', month: 'long'
+    //             });
+
+    //             const statsDelMesAnterior = calculateStats(trades, initialCapital);
+    //             const monthData = {
+    //                 id: Date.now(),
+    //                 month: storedMonth,
+    //                 monthName,
+    //                 initialCapital,
+    //                 trades: [...trades],
+    //                 stats: statsDelMesAnterior,
+    //                 savedDate: new Date().toISOString()
+    //             };
+
+    //             setMonthlyHistory(prev => [monthData, ...prev]);
+    //             setCurrentMonth(mesActual);
+    //             setInitialCapital(0);
+    //             setTrades(tradesDelMes);
+
+    //             Swal.fire({
+    //                 position: 'top-end', icon: 'success',
+    //                 text: `📅 Mes ${monthName} cerrado automáticamente. Actualiza tu capital inicial.`,
+    //                 showConfirmButton: false, timer: 3000,
+    //                 background: '#030712', color: 'gray'
+    //             });
+    //         } else {
+    //             setCurrentMonth(mesActual);
+    //             setTrades(tradesDelMes);
+    //         }
+
+    //         setBybitLastSync(new Date());
+
+    //         if (tradesDelMes.length > 0) {
+    //             Swal.fire({
+    //                 position: 'top-end', icon: 'success',
+    //                 text: `🔄 ${tradesDelMes.length} trades de ${mesActual} importados`,
+    //                 showConfirmButton: false, timer: 2000,
+    //                 background: '#030712', color: 'gray'
+    //             });
+    //         } else {
+    //             Swal.fire({
+    //                 position: 'top-end', icon: 'info',
+    //                 text: `No hay trades cerrados en ${mesActual}`,
+    //                 showConfirmButton: false, timer: 1500,
+    //                 background: '#030712', color: 'gray'
+    //             });
+    //         }
+
+    //         await supabase
+    //             .from('trading_journal')
+    //             .update({ bybit_last_sync: new Date().toISOString() })
+    //             .eq('auth_user_id', userId);
+
+    //     } catch (error) {
+    //         console.error('Error al sincronizar con Bybit:', error);
+    //         Swal.fire({
+    //             position: 'top-end', icon: 'error',
+    //             text: `Error: ${error.message}`,
+    //             showConfirmButton: false, timer: 2000,
+    //             background: '#030712', color: 'gray'
+    //         });
+    //     } finally {
+    //         setIsBybitSyncing(false);
+    //     }
+    // };
+
     //     const userId = overrideUserId || user?.id;
     //     if (!userId) return;
     //     if (isBybitSyncing) return;
