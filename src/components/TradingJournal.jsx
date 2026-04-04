@@ -12,6 +12,7 @@ import {
 import { supabase } from '../config/supabase';
 import Swal from 'sweetalert2';
 import TradeCalendar from './TradeCalendar';
+import TradeChart from './TradeChart';
 
 const TradingJournal = () => {
     const [view, setView] = useState('current');
@@ -41,6 +42,24 @@ const TradingJournal = () => {
 
     const [user, setUser] = useState(null);
     const [allTrades, setAllTrades] = useState([]);
+    const [selectedTrade, setSelectedTrade] = useState(null);
+    const [bybitCreds, setBybitCreds] = useState(null);
+
+    // ─── Cargar credenciales Bybit cuando está conectado ────────────────────────
+    useEffect(() => {
+        if (bybitConnected && user) {
+            supabase
+                .from('trading_journal')
+                .select('bybit_api_key, bybit_api_secret')
+                .eq('auth_user_id', user.id)
+                .single()
+                .then(({ data }) => {
+                    if (data?.bybit_api_key) {
+                        setBybitCreds({ apiKey: data.bybit_api_key, apiSecret: data.bybit_api_secret });
+                    }
+                });
+        }
+    }, [bybitConnected, user]);
 
     // ─── Auth ───────────────────────────────────────────────────────────────────
     useEffect(() => {
@@ -303,7 +322,7 @@ const TradingJournal = () => {
                 .map(t => ({
                     id: t.orderId,
                     pair: t.symbol,
-                    action: t.side === 'Sell' ? 'Short 🔴' : 'Long 🟢',
+                    action: t.side === 'Sell' ? 'Long 🟢' : 'Short 🔴',
                     leverage: parseInt(t.leverage) || 1,
                     result: parseFloat(t.closedPnl) >= 0 ? 'win' : 'loss',
                     amount: Math.abs(parseFloat(t.closedPnl || '0')),
@@ -312,6 +331,10 @@ const TradingJournal = () => {
                     pnl: parseFloat(t.closedPnl || '0'),
                     entryPrice: parseFloat(t.avgEntryPrice || '0'),
                     exitPrice: parseFloat(t.avgExitPrice || '0'),
+                    qty: parseFloat(t.closedSize || t.qty || '0'),
+                    entryTime: t.createdTime ? new Date(parseInt(t.createdTime)).toISOString() : null,
+                    exitTime: t.updatedTime ? new Date(parseInt(t.updatedTime)).toISOString() : null,
+                    cumExitValue: parseFloat(t.cumExitValue || '0'),
                 }))
                 .filter(t => t.amount > 0); // puedes quitar esto si quieres TODOS
 
@@ -322,6 +345,39 @@ const TradingJournal = () => {
             const mesActual = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, '0')}`;
 
             const tradesDelMes = allMapped.filter(t => t.date.startsWith(mesActual));
+
+            // ── Cierre automático si cambió el mes ────────────────────
+            const storedMonth = currentMonth || mesActual;
+            if (storedMonth !== mesActual) {
+                const monthName = new Date(storedMonth + '-01').toLocaleDateString('es-ES', {
+                    year: 'numeric', month: 'long'
+                });
+
+                const tradesDelMesAnterior = allMapped.filter(t => t.date.startsWith(storedMonth));
+                const statsDelMesAnterior = calculateStats(tradesDelMesAnterior, initialCapital);
+
+                const monthData = {
+                    id: Date.now(),
+                    month: storedMonth,
+                    monthName,
+                    initialCapital,
+                    trades: tradesDelMesAnterior,
+                    stats: statsDelMesAnterior,
+                    savedDate: new Date().toISOString()
+                };
+
+                setMonthlyHistory(prev => {
+                    const yaExiste = prev.some(m => m.month === storedMonth);
+                    return yaExiste ? prev : [monthData, ...prev];
+                });
+
+                Swal.fire({
+                    position: 'top-end', icon: 'success',
+                    text: `📅 Mes ${monthName} cerrado automáticamente. Actualiza tu capital inicial.`,
+                    showConfirmButton: false, timer: 3000,
+                    background: '#030712', color: 'gray'
+                });
+            }
 
             setTrades(tradesDelMes);
             setCurrentMonth(mesActual);
@@ -1127,6 +1183,102 @@ const TradingJournal = () => {
         </div>
     );
 
+    // ─── Modal Detalle de Trade ──────────────────────────────────────────────────
+    const TradeDetailModal = ({ trade, onClose }) => {
+        const isWin = trade.result === 'win';
+        const capitalOperado = trade.entryPrice && trade.qty && trade.leverage
+            ? (trade.entryPrice * trade.qty) / trade.leverage
+            : trade.cumExitValue || 0;
+        const roi = capitalOperado > 0 ? (trade.pnl / capitalOperado) * 100 : 0;
+
+        const formatDateTime = (iso) => {
+            if (!iso) return '—';
+            return new Date(iso).toLocaleString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        };
+
+        const stats = [
+            { label: 'Broker', value: trade.fromBybit ? 'Bybit' : 'Manual', color: 'text-white' },
+            { label: 'Dirección', value: trade.action.includes('Long') ? 'LONG' : 'SHORT', color: trade.action.includes('Long') ? 'text-green-400' : 'text-red-400' },
+            { label: 'Cantidad negociada', value: trade.qty ? trade.qty.toLocaleString() : '—', color: 'text-white' },
+            { label: 'Apalancamiento', value: `${trade.leverage}x`, color: 'text-yellow-400' },
+            { label: 'ROI Neto', value: capitalOperado > 0 ? `${roi >= 0 ? '+' : ''}${roi.toFixed(2)}%` : '—', color: roi >= 0 ? 'text-green-400' : 'text-red-400' },
+            { label: 'P&L Bruto', value: `${trade.pnl >= 0 ? '+' : ''}$${trade.pnl.toFixed(4)}`, color: trade.pnl >= 0 ? 'text-green-400' : 'text-red-400' },
+            { label: 'Precio Entrada', value: trade.entryPrice ? `$${trade.entryPrice.toFixed(4)}` : '—', color: 'text-cyan-400' },
+            { label: 'Precio Salida', value: trade.exitPrice ? `$${trade.exitPrice.toFixed(4)}` : '—', color: 'text-cyan-400' },
+            { label: 'Capital Operado', value: capitalOperado > 0 ? `USDT ${capitalOperado.toFixed(2)}` : '—', color: 'text-white' },
+        ];
+
+        return (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={onClose}>
+                <div
+                    className="bg-gray-900 rounded-2xl border border-gray-700 w-full max-w-5xl shadow-2xl overflow-hidden"
+                    style={{ maxHeight: '90vh', overflowY: 'auto' }}
+                    onClick={e => e.stopPropagation()}
+                >
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+                        <div className="flex items-center gap-3">
+                            <span className="text-2xl font-bold text-white">{trade.pair}</span>
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold border ${isWin ? 'bg-green-900/40 text-green-400 border-green-500/30' : 'bg-red-900/40 text-red-400 border-red-500/30'}`}>
+                                {isWin ? 'GANADOR' : 'PERDEDOR'}
+                            </span>
+                            <span className="text-sm text-gray-500">{trade.date}</span>
+                        </div>
+                        <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    {/* Body */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2">
+                        {/* Left – Stats */}
+                        <div className="p-6 border-b lg:border-b-0 lg:border-r border-gray-800">
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Estadísticas del Trade</p>
+
+                            <div className="mb-5">
+                                <p className="text-xs text-gray-500 mb-1">P&L Neto</p>
+                                <p className={`text-4xl font-bold ${isWin ? 'text-green-400' : 'text-red-400'}`}>
+                                    {isWin ? '+' : '-'}${Math.abs(trade.pnl).toFixed(2)}
+                                </p>
+                            </div>
+
+                            <div className="space-y-1">
+                                {stats.map(({ label, value, color }) => (
+                                    <div key={label} className="flex items-center justify-between py-2.5 border-b border-gray-800/60">
+                                        <span className="text-sm text-gray-400">{label}</span>
+                                        <span className={`text-sm font-semibold ${color}`}>{value}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Right – Chart */}
+                        <div className="p-6 flex flex-col gap-4">
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Gráfico</p>
+
+                            <TradeChart trade={trade} bybitCreds={bybitCreds} />
+
+                            {(trade.entryTime || trade.exitTime) && (
+                                <div className="flex flex-wrap gap-4 text-xs text-gray-400">
+                                    <span>
+                                        <span className="inline-block w-2 h-2 rounded-full bg-green-400 mr-1" />
+                                        Entrada: <span className="text-gray-300">{formatDateTime(trade.entryTime)}</span>
+                                        {trade.entryPrice ? <span className="text-green-400 ml-1">@ ${trade.entryPrice.toFixed(4)}</span> : ''}
+                                    </span>
+                                    <span>
+                                        <span className="inline-block w-2 h-2 rounded-full bg-red-400 mr-1" />
+                                        Salida: <span className="text-gray-300">{formatDateTime(trade.exitTime)}</span>
+                                        {trade.exitPrice ? <span className="text-red-400 ml-1">@ ${trade.exitPrice.toFixed(4)}</span> : ''}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     // ════════════════════════════════════════════════════════════════════════════
     // VISTA: Historial Mensual
     // ════════════════════════════════════════════════════════════════════════════
@@ -1315,6 +1467,7 @@ const TradingJournal = () => {
     // VISTA PRINCIPAL
     // ════════════════════════════════════════════════════════════════════════════
     return (
+        <>
         <div className="min-h-screen bg-gray-950 p-4 md:p-8">
             {showBybitConfig && <BybitConfigModal />}
 
@@ -1552,7 +1705,11 @@ const TradingJournal = () => {
                                     </tr>
                                 ) : (
                                     [...trades].reverse().map((trade) => (
-                                        <tr key={trade.id} className="hover:bg-gray-800 transition-colors">
+                                        <tr
+                                            key={trade.id}
+                                            className="hover:bg-gray-800 transition-colors cursor-pointer"
+                                            onClick={() => setSelectedTrade(trade)}
+                                        >
                                             <td className="px-3 py-4 text-sm text-gray-300">{trade.date}</td>
                                             <td className="px-3 py-4 text-sm font-semibold text-white">
                                                 {trade.pair}
@@ -1570,7 +1727,6 @@ const TradingJournal = () => {
                                                     {trade.result === 'win' ? '+' : '-'}${parseFloat(trade.amount).toFixed(2)}
                                                 </span>
                                             </td>
-
                                         </tr>
                                     ))
                                 )}
@@ -1580,6 +1736,11 @@ const TradingJournal = () => {
                 </div>
             </div>
         </div>
+
+        {selectedTrade && (
+            <TradeDetailModal trade={selectedTrade} onClose={() => setSelectedTrade(null)} />
+        )}
+        </>
     );
 };
 
