@@ -272,12 +272,13 @@ const TradingJournal = () => {
             // ── 🔥 TRAER TODO EL HISTORIAL POR BLOQUES ───────────────────
 
             const now = Date.now();
-            const daysBack = 180; // puedes subirlo (ej: 365)
             const chunkDays = 7;
-
             const chunkMs = chunkDays * 24 * 60 * 60 * 1000;
 
-            let start = now - (daysBack * 24 * 60 * 60 * 1000);
+            const nowDateObj = new Date();
+            const firstDayOfMonth = new Date(nowDateObj.getFullYear(), nowDateObj.getMonth(), 1).getTime();
+
+            let start = firstDayOfMonth;
             const end = now;
 
             let allResults = [];
@@ -1235,51 +1236,51 @@ const TradingJournal = () => {
 
                     {/* Body */}
                     <div className="grid grid-cols-1 lg:grid-cols-2">
-                            {/* Left – Stats */}
-                            <div className="p-6 border-b lg:border-b-0 lg:border-r border-gray-800">
-                                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Estadísticas del Trade</p>
+                        {/* Left – Stats */}
+                        <div className="p-6 border-b lg:border-b-0 lg:border-r border-gray-800">
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Estadísticas del Trade</p>
 
-                                <div className="mb-5">
-                                    <p className="text-xs text-gray-500 mb-1">P&L Neto</p>
-                                    <p className={`text-4xl font-bold ${isWin ? 'text-green-400' : 'text-red-400'}`}>
-                                        {isWin ? '+' : '-'}${Math.abs(trade.pnl).toFixed(2)}
-                                    </p>
-                                </div>
-
-                                <div className="space-y-1">
-                                    {stats.map(({ label, value, color }) => (
-                                        <div key={label} className="flex items-center justify-between py-2.5 border-b border-gray-800/60">
-                                            <span className="text-sm text-gray-400">{label}</span>
-                                            <span className={`text-sm font-semibold ${color}`}>{value}</span>
-                                        </div>
-                                    ))}
-                                </div>
+                            <div className="mb-5">
+                                <p className="text-xs text-gray-500 mb-1">P&L Neto</p>
+                                <p className={`text-4xl font-bold ${isWin ? 'text-green-400' : 'text-red-400'}`}>
+                                    {isWin ? '+' : '-'}${Math.abs(trade.pnl).toFixed(2)}
+                                </p>
                             </div>
 
-                            {/* Right – Chart */}
-                            <div className="p-6 flex flex-col gap-4">
-                                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Gráfico</p>
-
-                                <TradeChart trade={trade} bybitCreds={bybitCreds} />
-
-                                {(trade.entryTime || trade.exitTime) && (
-                                    <div className="flex flex-wrap gap-4 text-xs text-gray-400">
-                                        <span>
-                                            <span className="inline-block w-2 h-2 rounded-full bg-green-400 mr-1" />
-                                            Entrada: <span className="text-gray-300">{formatDateTime(trade.entryTime)}</span>
-                                            {trade.entryPrice ? <span className="text-green-400 ml-1">@ ${trade.entryPrice.toFixed(4)}</span> : ''}
-                                        </span>
-                                        <span>
-                                            <span className="inline-block w-2 h-2 rounded-full bg-red-400 mr-1" />
-                                            Salida: <span className="text-gray-300">{formatDateTime(trade.exitTime)}</span>
-                                            {trade.exitPrice ? <span className="text-red-400 ml-1">@ ${trade.exitPrice.toFixed(4)}</span> : ''}
-                                        </span>
+                            <div className="space-y-1">
+                                {stats.map(({ label, value, color }) => (
+                                    <div key={label} className="flex items-center justify-between py-2.5 border-b border-gray-800/60">
+                                        <span className="text-sm text-gray-400">{label}</span>
+                                        <span className={`text-sm font-semibold ${color}`}>{value}</span>
                                     </div>
-                                )}
+                                ))}
                             </div>
+                        </div>
+
+                        {/* Right – Chart */}
+                        <div className="p-6 flex flex-col gap-4">
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Gráfico</p>
+
+                            <TradeChart trade={trade} bybitCreds={bybitCreds} />
+
+                            {(trade.entryTime || trade.exitTime) && (
+                                <div className="flex flex-wrap gap-4 text-xs text-gray-400">
+                                    <span>
+                                        <span className="inline-block w-2 h-2 rounded-full bg-green-400 mr-1" />
+                                        Entrada: <span className="text-gray-300">{formatDateTime(trade.entryTime)}</span>
+                                        {trade.entryPrice ? <span className="text-green-400 ml-1">@ ${trade.entryPrice.toFixed(4)}</span> : ''}
+                                    </span>
+                                    <span>
+                                        <span className="inline-block w-2 h-2 rounded-full bg-red-400 mr-1" />
+                                        Salida: <span className="text-gray-300">{formatDateTime(trade.exitTime)}</span>
+                                        {trade.exitPrice ? <span className="text-red-400 ml-1">@ ${trade.exitPrice.toFixed(4)}</span> : ''}
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
+            </div>
         );
     };
 
