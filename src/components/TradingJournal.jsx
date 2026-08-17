@@ -953,7 +953,14 @@ const TradingJournal = () => {
         };
     };
 
-    const stats = calculateStats(trades, initialCapital);
+    // ─── Ocultar trade(s) del 17 de agosto (una sola vez) ───────────────────────
+    const HIDDEN_DATE = '2026-08-17';
+
+    const visibleTrades = trades.filter(t => t.date !== HIDDEN_DATE);
+    const visibleAllTrades = allTrades.filter(t => t.date !== HIDDEN_DATE);
+
+    // const stats = calculateStats(trades, initialCapital);
+    const stats = calculateStats(visibleTrades, initialCapital);
 
     // ─── CRUD trades ─────────────────────────────────────────────────────────────
     const addTrade = () => {
@@ -1639,7 +1646,7 @@ const TradingJournal = () => {
                     {/* Calendario */}
                     <div className="mb-6">
                         <TradeCalendar
-                            trades={allTrades.length > 0 ? allTrades : trades}
+                            trades={visibleAllTrades.length > 0 ? visibleAllTrades : visibleTrades}
                             currentMonth={currentMonth}
                         />
                     </div>
@@ -1702,14 +1709,14 @@ const TradingJournal = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-800">
-                                    {trades.length === 0 ? (
+                                    {visibleTrades.length === 0 ? (
                                         <tr>
                                             <td colSpan="7" className="px-6 py-8 text-center text-gray-400">
                                                 {bybitConnected ? '🔄 Sincronizando trades desde Bybit...' : 'No hay operaciones. ¡Agrega tu primera operación!'}
                                             </td>
                                         </tr>
                                     ) : (
-                                        [...trades].reverse().map((trade) => (
+                                        [...visibleTrades].reverse().map((trade) => (
                                             <tr
                                                 key={trade.id}
                                                 className="hover:bg-gray-800 transition-colors cursor-pointer"
