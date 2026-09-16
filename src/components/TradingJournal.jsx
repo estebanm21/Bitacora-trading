@@ -968,16 +968,7 @@ const TradingJournal = () => {
             date: new Date().toISOString().split('T')[0], // hoy
             fromBybit: false,
         },
-        {
-            id: 'manual-extra-2',
-            pair: 'ETH/USDT',       // cambia el par si quieres
-            action: 'Short 🔴',      // o 'Long 🟢'
-            leverage: 1,
-            result: 'loss',
-            amount: 20,
-            date: new Date().toISOString().split('T')[0], // hoy
-            fromBybit: false,
-        }
+
     ];
 
     const visibleTrades = [
