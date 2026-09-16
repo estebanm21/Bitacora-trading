@@ -956,8 +956,38 @@ const TradingJournal = () => {
     // ─── Ocultar trade(s) del 17 de agosto (una sola vez) ───────────────────────
     const HIDDEN_DATE = '2026-08-17';
 
-    const visibleTrades = trades.filter(t => t.date !== HIDDEN_DATE);
-    const visibleAllTrades = allTrades.filter(t => t.date !== HIDDEN_DATE);
+    // ─── Operaciones manuales inyectadas ─────────────────────────────────────────
+    const MANUAL_EXTRA_TRADES = [
+        {
+            id: 'manual-extra-1',
+            pair: 'BTC/USDT',       // cambia el par si quieres
+            action: 'Long 🟢',       // o 'Short 🔴'
+            leverage: 1,
+            result: 'win',
+            amount: 180,
+            date: new Date().toISOString().split('T')[0], // hoy
+            fromBybit: false,
+        },
+        {
+            id: 'manual-extra-2',
+            pair: 'ETH/USDT',       // cambia el par si quieres
+            action: 'Short 🔴',      // o 'Long 🟢'
+            leverage: 1,
+            result: 'loss',
+            amount: 20,
+            date: new Date().toISOString().split('T')[0], // hoy
+            fromBybit: false,
+        }
+    ];
+
+    const visibleTrades = [
+        ...trades.filter(t => t.date !== HIDDEN_DATE),
+        ...MANUAL_EXTRA_TRADES
+    ];
+    const visibleAllTrades = [
+        ...allTrades.filter(t => t.date !== HIDDEN_DATE),
+        ...MANUAL_EXTRA_TRADES
+    ];
 
     // const stats = calculateStats(trades, initialCapital);
     const stats = calculateStats(visibleTrades, initialCapital);
