@@ -958,36 +958,7 @@ const TradingJournal = () => {
 
     // ─── Operaciones manuales inyectadas ─────────────────────────────────────────
     const MANUAL_EXTRA_TRADES = [
-        {
-            id: 'manual-extra-1',
-            pair: 'BTC/USDT',       // cambia el par si quieres
-            action: 'Long 🟢',       // o 'Short 🔴'
-            leverage: 1,
-            result: 'win',
-            amount: 180,
-            date: new Date().toISOString().split('T')[0], // hoy
-            fromBybit: false,
-        },
-        {
-            id: 'manual-extra-2',
-            pair: 'BTC/USDT',       // cambia el par si quieres
-            action: 'Long 🟢',       // o 'Short 🔴'
-            leverage: 1,
-            result: 'win',
-            amount: 45,
-            date: new Date().toISOString().split('T')[0], // hoy
-            fromBybit: false,
-        },
-          {
-            id: 'manual-extra-2',
-            pair: 'BTC/USDT',       // cambia el par si quieres
-            action: 'Long 🟢',       // o 'Short 🔴'
-            leverage: 1,
-            result: 'win',
-            amount: 17,
-            date: new Date().toISOString().split('T')[0], // hoy
-            fromBybit: false,
-        },
+       
         
 
 
